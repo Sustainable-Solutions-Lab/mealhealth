@@ -1,0 +1,43 @@
+<!--
+SPDX-FileCopyrightText: 2026 Koen van Greevenbroek
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Bundled data — schemas and provenance
+
+These CSVs are processed/adapted derivatives produced by `tools/prepare_data.py`
+from the `food-opt` project's data. See `docs/data_sources.md` for licensing
+(non-commercial). Reference year: mortality/population 2020; life table 2024
+(nearest available in the bundled UN WPP file); intake circa 2018–2020.
+
+## `relative_risks.csv`
+GBD dietary dose–response curves, in the model fresh/dry basis.
+`risk_factor, cause, age, exposure_g_per_day, rr_mean, rr_low, rr_high`
+- 7 risk factors × their mapped causes × 15 adult age bands (25–29 … 95+).
+- Meat exposures are converted to fresh retail basis (×1.43 from cooked).
+
+## `baseline_intake.csv`
+Per-country baseline daily intake per risk-factor group (model basis).
+`country, risk_factor, intake_g_per_day`
+- `red_meat` (unprocessed) and `processed_meat` are split via the GDD-IA
+  processed-meat fraction; their sum reproduces `food-opt`'s combined figure.
+
+## `baseline_calories.csv`
+`country, kcal_per_day` — total baseline daily dietary energy (GDD-IA all-food
+groups total).
+
+## `mortality.csv`
+`age, cause, country, death_rate_per_1000` — GBD cause-specific death rate per
+1,000 person-years, year 2020, causes CHD/Stroke/T2DM/CRC.
+
+## `population.csv`
+`age, country, population` — UN WPP population by age band, 2020 (includes the
+`all-a` total row).
+
+## `life_table.csv`
+`country, age, lx, ex` — UN WPP abridged life table (both sexes), survivors
+`lx` (radix 100000) and remaining life expectancy `ex` by age band; per country
+with World fallback where unavailable.
+
+Countries with complete data across all files: 175.

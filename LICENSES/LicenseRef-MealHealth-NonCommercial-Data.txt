@@ -1,0 +1,40 @@
+MealHealth bundled-data licence (non-commercial)
+================================================
+
+The CSV files under ``src/mealhealth/data/`` are PROCESSED, ADAPTED and
+SUBSTANTIALLY REDUCED derivatives of third-party datasets. They are not the raw
+source data: they contain only the minimum quantities (dose-response curves,
+per-country baseline food-group intakes and calories, cause/age death rates,
+population age structure and abridged life tables) needed to evaluate this
+package's health-impact formulas.
+
+Upstream sources and their terms:
+
+1. IHME Global Burden of Disease (GBD) — relative-risk dose-response curves and
+   cause-specific mortality rates.
+   Licence: IHME Free-of-Charge Non-commercial User Agreement
+   (see LicenseRef-IHME-NonCommercial.txt). Non-commercial use only; the raw
+   data may not be redistributed. Only adapted, aggregated derivatives are
+   bundled here.
+
+2. Global Dietary Database — Integrated Assessment (GDD-IA), Tufts University —
+   baseline per-country food-group intakes and the processed/unprocessed
+   red-meat split, and total dietary energy.
+   Licence: free for non-commercial research, teaching and private study with
+   attribution; may not be redistributed or used commercially without Tufts
+   permission (see LicenseRef-GDD-NonCommercial.txt).
+
+3. UN World Population Prospects (WPP) — population age structure and abridged
+   life tables (survivorship and remaining life expectancy).
+   Licence: Creative Commons Attribution 3.0 IGO (CC BY 3.0 IGO).
+
+Because the bundled data inherits the most restrictive of these upstream terms,
+the bundled data — and therefore this package AS A WHOLE when distributed with
+it — is provided for NON-COMMERCIAL research, teaching and private study only,
+WITH ATTRIBUTION to the sources above. This restriction stands independently of
+the GPL-3.0-or-later licence that applies to the package's source code: the GPL
+covers the code, not these data files, and does not grant any commercial-use or
+unrestricted-redistribution rights over them.
+
+No warranty is provided. When publishing results, cite GBD (IHME), the Global
+Dietary Database, and UN WPP as described in docs/data_sources.md.

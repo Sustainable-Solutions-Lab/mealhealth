@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Koen van Greevenbroek
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+line-length = 88
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = ["E501"]  # long lines tolerated in data-heavy docstrings
+
+[lint.isort]
+force-sort-within-sections = true
