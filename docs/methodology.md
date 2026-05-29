@@ -149,6 +149,12 @@ only the RR curves and the baseline exposure, not mortality or life tables.
   `deaths × remaining life expectancy` using the country's own (period) life
   table, rather than GBD's aspirational standard life table; the headline
   metric is therefore "expected years of life lost at local life expectancy".
+* Additional dietary risk factors (sodium, sugar-sweetened beverages) are
+  **not** modelled. GBD's sodium effect runs through a blood-pressure-mediated
+  pathway in different units, and the SSB/sugar evidence is weak; both were
+  optional "bonus" factors in the spec and are out of scope here. The
+  architecture (a `risk_factor` with its own RR curve and baseline exposure)
+  would accommodate them if suitable dose-response data were added.
 * Red-meat RR uses the literature log-linear curves carried over from
   `food-opt` (Bechthold et al. 2019 for CHD/Stroke, Li et al. 2024 for T2DM,
   Chan et al. 2011 for CRC), which are calibrated on *unprocessed* red meat and
