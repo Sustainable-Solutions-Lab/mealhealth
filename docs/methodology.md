@@ -67,7 +67,7 @@ The anchor `Y_d` and the RR curve used differ by **age mode**.
 
 ### (a) Population mode
 
-A population-level **annual** quantity (matches `food-opt`). The relative risk
+A population-level **annual** quantity. The relative risk
 uses the **YLL-weighted effective curve** across adult age groups:
 
 ```
@@ -117,7 +117,8 @@ lifetime modes.
 
 ## 5. Cause/risk-factor map
 
-Same as `food-opt`, with processed meat added from its own GBD curves:
+Each risk factor acts on the GBD-mapped causes below; processed meat is added
+from its own GBD curves:
 
 | Risk factor      | CHD | Stroke | T2DM | CRC |
 |------------------|:---:|:------:|:----:|:---:|
@@ -155,8 +156,8 @@ only the RR curves and the baseline exposure, not mortality or life tables.
   optional "bonus" factors in the spec and are out of scope here. The
   architecture (a `risk_factor` with its own RR curve and baseline exposure)
   would accommodate them if suitable dose-response data were added.
-* Red-meat RR uses the literature log-linear curves carried over from
-  `food-opt` (Bechthold et al. 2019 for CHD/Stroke, Li et al. 2024 for T2DM,
+* Red-meat RR uses literature log-linear curves
+  (Bechthold et al. 2019 for CHD/Stroke, Li et al. 2024 for T2DM,
   Chan et al. 2011 for CRC), which are calibrated on *unprocessed* red meat and
   thus appropriate now that processed meat is separated out. Processed meat uses
   the GBD 2019 dose–response curves directly.

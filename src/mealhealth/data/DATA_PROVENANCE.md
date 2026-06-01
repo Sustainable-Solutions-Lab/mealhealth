@@ -6,10 +6,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Bundled data — schemas and provenance
 
-These CSVs are processed/adapted derivatives produced by `tools/prepare_data.py`
-from the `food-opt` project's data. See `docs/data_sources.md` for licensing
-(non-commercial). Reference year: mortality/population 2020; life table 2024
-(nearest available in the bundled UN WPP file); intake circa 2018–2020.
+These CSVs are processed/adapted derivatives. The health/demographic files are
+produced by `tools/prepare_data.py` from public raw datasets (IHME GBD, UN WPP);
+the baseline-diet files are a separate dataset (see `docs/data_sources.md`).
+See `docs/data_sources.md` for sources and licensing (non-commercial).
+Reference year: mortality/population 2020; life table 2024 (nearest available in
+the UN WPP abridged file); intake circa 2018–2020.
 
 ## `relative_risks.csv`
 GBD dietary dose–response curves, in the model fresh/dry basis.
@@ -21,7 +23,7 @@ GBD dietary dose–response curves, in the model fresh/dry basis.
 Per-country baseline daily intake per risk-factor group (model basis).
 `country, risk_factor, intake_g_per_day`
 - `red_meat` (unprocessed) and `processed_meat` are split via the GDD-IA
-  processed-meat fraction; their sum reproduces `food-opt`'s combined figure.
+  processed-meat fraction; their sum is the combined red-meat intake.
 
 ## `baseline_calories.csv`
 `country, kcal_per_day` — total baseline daily dietary energy (GDD-IA all-food

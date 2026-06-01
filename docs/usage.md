@@ -80,11 +80,16 @@ mh.food_groups()["whole_grains"].input_basis   # 'dry weight (uncooked)'
 
 ## Reproducing the bundled data
 
-The bundled CSVs are derived from the `food-opt` project. To regenerate them
-(requires licensed copies of the GBD/GDD raw data, present in a `food-opt`
-checkout):
+The bundled **health and demographic** CSVs (`relative_risks.csv`,
+`mortality.csv`, `population.csv`, `life_table.csv`) are regenerated from public
+source datasets. Download the two IHME GBD files into `data/raw/` (the UN WPP
+files download automatically), then run:
 
 ```bash
-cd /path/to/food-opt
-.pixi/envs/default/bin/python /path/to/meal-health-indicator/tools/prepare_data.py
+python tools/prepare_data.py
 ```
+
+See [`data_sources.md`](data_sources.md) for exactly which files to download and
+where to place them. The **baseline diet** (`baseline_intake.csv`,
+`baseline_calories.csv`) is a separate bundled dataset and is not built by this
+tool — see the "Baseline diet" section of that document.

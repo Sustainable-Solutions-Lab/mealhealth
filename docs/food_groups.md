@@ -29,9 +29,9 @@ Definitions follow the GBD 2021 dietary risk-factor definitions.
 ## Mass basis — read this for correct numbers
 
 The relative-risk curves and the bundled baseline diet are all expressed in a
-consistent per-group **basis** (inherited from the `food-opt` pipeline, which
-reconciles GBD's native exposure bases with measured intakes). You must supply
-each meal group's mass in the **same basis**, or the numbers will be off:
+consistent per-group **basis** (GBD's native exposure bases reconciled with
+measured intakes). You must supply each meal group's mass in the **same
+basis**, or the numbers will be off:
 
 * **Fresh / as-eaten weight** — `fruits`, `vegetables`, `nuts_seeds`: the
   weight of the food ready to eat (a raw apple, a portion of cooked
@@ -46,9 +46,8 @@ each meal group's mass in the **same basis**, or the numbers will be off:
 
 ### Red vs processed meat
 
-Unlike `food-opt` (which folds processed meat into red meat), `mealhealth`
-treats them as **separate** groups, each with its own dose–response curve and
-its own baseline exposure:
+`mealhealth` treats unprocessed and processed meat as **separate** groups, each
+with its own dose–response curve and its own baseline exposure:
 
 * `red_meat` — unprocessed beef, pork, lamb, goat.
 * `processed_meat` — bacon, ham, sausages, hot dogs, deli/cured meats.

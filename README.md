@@ -34,15 +34,14 @@ print("By cause:", result.delta_paf_total)            # per-cause % risk change
 ## What it models
 
 * **Food groups (GBD dietary risk factors):** fruits, vegetables, whole grains,
-  legumes, nuts & seeds, unprocessed red meat, and — unlike `food-opt` —
-  **processed meat as a separate group**.
+  legumes, nuts & seeds, unprocessed red meat, and **processed meat as a
+  separate group**.
 * **Diseases:** coronary heart disease (CHD), ischemic stroke, type-2 diabetes
-  (T2DM), colorectal cancer (CRC). Cause↔risk-factor map is the same as
-  `food-opt` (processed meat adds its own GBD-mapped causes: CHD, T2DM, CRC).
+  (T2DM), colorectal cancer (CRC), each acting on its GBD-mapped causes
+  (processed meat: CHD, T2DM, CRC).
 * **Age modes:**
   * `population` (a) — age-(YLL-)weighted effective impact if the whole
-    population ate the meal; a population-level **annual** YLL figure (matches
-    `food-opt`).
+    population ate the meal; a population-level **annual** YLL figure.
   * `median` (b) and `age` (c) — **individual lifetime** quantities for the
     median adult or a person of a given age, built from a life table and
     age/cause-specific death rates.

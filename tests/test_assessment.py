@@ -166,7 +166,7 @@ def test_usa_baseline_burden_reasonable():
     assert 1e6 < b.total_yll("CHD") < 5e7
     # baseline calories ~2400 kcal
     assert 1800 < b.baseline_kcal < 3200
-    # red + processed meat split sums to food-opt's combined ~66.6 g/day
+    # red + processed meat split sums to the combined red-meat intake ~66.6 g/day
     assert b.baseline["red_meat"] + b.baseline["processed_meat"] == pytest.approx(
         66.6, abs=1.0
     )

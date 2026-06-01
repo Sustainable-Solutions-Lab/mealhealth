@@ -25,7 +25,8 @@ dev = [
     "pytest>=7",
     "ruff>=0.5",
     "reuse>=3",
-    "openpyxl>=3",  # only needed to re-run tools/prepare_data.py
+    "openpyxl>=3",   # only needed to re-run tools/prepare_data.py (GBD RR XLSX)
+    "pycountry>=22",  # only needed to re-run tools/prepare_data.py (mortality)
 ]
 
 [project.urls]
