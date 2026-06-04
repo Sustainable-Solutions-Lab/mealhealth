@@ -14,8 +14,11 @@ the same total calories), how would their diet-attributable years of life lost
 (YLL) change?* Positive ΔYLL means years **gained** (burden reduced); negative
 means years **lost**.
 
-All quantities are **relative to the country's baseline diet**, so no
-theoretical-minimum-risk (TMREL) reference is needed.
+All quantities are **relative to the country's baseline diet**, so the PAF below
+carries no theoretical-minimum-risk (TMREL) reference term. (The TMREL still
+enters indirectly: each bundled dose–response curve is clipped at its GBD 2023
+TMREL during data preparation, so intake past the plateau yields no further
+benefit. See [Data sources](data_sources.md).)
 
 ## 1. The substituted diet
 
@@ -38,9 +41,12 @@ are **not** entered as food groups; they influence the result only through
 ## 2. Relative risk and PAF
 
 For each (risk factor `r`, disease cause `d`) pair, the relative risk
-`RR_{r,d}(x_r)` is read off the GBD dose–response curve by **log-linear
-interpolation** (linear interpolation of `log RR` between the empirical
-exposure knots, clamped flat beyond the data range). Risk factors combine
+`RR_{r,d}(x_r)` is read off the GBD 2023 Burden-of-Proof dose–response curve by
+**log-linear interpolation** (linear interpolation of `log RR` between the
+exposure knots, clamped flat beyond the data range). The Burden-of-Proof tool
+provides one age-aggregated curve per pair; the bundled curves restore the
+per-age structure with a curated multiplicative log-RR attenuation (GBD's 60-64
+reference age) and are clipped at the GBD 2023 TMREL. Risk factors combine
 multiplicatively per cause:
 
 ```
@@ -160,4 +166,6 @@ only the RR curves and the baseline exposure, not mortality or life tables.
   (Bechthold et al. 2019 for CHD/Stroke, Li et al. 2024 for T2DM,
   Chan et al. 2011 for CRC), which are calibrated on *unprocessed* red meat and
   thus appropriate now that processed meat is separated out. Processed meat uses
-  the GBD 2019 dose–response curves directly.
+  the GBD 2023 Burden-of-Proof dose–response curves directly (CHD/T2DM/CRC; no
+  ischemic stroke curve). `nuts_seeds` maps to CHD only, since GBD 2023 no longer
+  links it to T2DM.

@@ -15,7 +15,10 @@ SPDX-FileCopyrightText = [
 SPDX-License-Identifier = "LicenseRef-MealHealth-NonCommercial-Data AND LicenseRef-IHME-NonCommercial AND LicenseRef-GDD-NonCommercial"
 
 [[annotations]]
-path = "tools/reference/red_meat_rr_log_linear.csv"
+# Curated regeneration inputs: literature/derived tables (the red-meat RR
+# curve, the GBD 2023 TMREL table, and the age-attenuation ratios derived
+# from the GBD 2019 age structure). Author-curated derived works.
+path = "tools/reference/**.csv"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Koen van Greevenbroek"
 SPDX-License-Identifier = "CC-BY-4.0"

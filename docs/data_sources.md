@@ -13,16 +13,17 @@ reduced to the minimum needed to evaluate the health-impact formulas (see
 
 The **health and demographic** data (`relative_risks.csv`, `mortality.csv`,
 `population.csv`, `life_table.csv`) is fully reproducible from public source
-datasets that a developer downloads themselves; `tools/prepare_data.py` then
-processes them. The **baseline diet** (`baseline_intake.csv`,
-`baseline_calories.csv`) is a separate derived dataset — see
-[Baseline diet](#baseline-diet) below.
+datasets; `tools/prepare_data.py` then processes them. It uses the **GBD 2023**
+vintage throughout: relative risks from the GBD 2023 Burden-of-Proof tool and
+mortality from the GBD 2023 Results tool. The **baseline diet**
+(`baseline_intake.csv`, `baseline_calories.csv`) is a separate derived dataset —
+see [Baseline diet](#baseline-diet) below.
 
 ## Sources
 
 | Bundled file            | Derived from | Upstream licence |
 |-------------------------|--------------|------------------|
-| `relative_risks.csv`    | IHME GBD 2019 relative risks (XLSX); red-meat curve from literature meta-analyses | IHME non-commercial |
+| `relative_risks.csv`    | IHME GBD 2023 Burden-of-Proof dose–response curves (age structure from GBD 2019); red-meat curve from literature meta-analyses | IHME non-commercial |
 | `mortality.csv`         | IHME GBD 2023 cause-specific death rates (2020) | IHME non-commercial |
 | `population.csv`        | UN World Population Prospects (population by age) | CC BY 3.0 IGO |
 | `life_table.csv`        | UN World Population Prospects (abridged life tables) | CC BY 3.0 IGO |
@@ -31,16 +32,33 @@ processes them. The **baseline diet** (`baseline_intake.csv`,
 
 ## Obtaining the raw data
 
-Place all raw inputs under `data/raw/` (git-ignored). The two UN WPP files are
-public and downloaded automatically by `tools/prepare_data.py`; the two IHME GBD
-files require a (free) IHME account and must be downloaded manually first.
+Place all raw inputs under `data/raw/` (git-ignored). The UN WPP files and the
+GBD 2023 Burden-of-Proof relative-risk curves are downloaded automatically by
+`tools/prepare_data.py`; the GBD 2023 cause-specific death-rate CSV requires a
+(free) IHME account and must be downloaded manually first.
 
-### 1. IHME GBD 2019 relative risks (manual)
+### 1. IHME GBD 2023 relative risks — Burden of Proof (automatic)
 
-Go to <https://ghdx.healthdata.org/record/ihme-data/gbd-2019-relative-risks>.
-Under the **Files** tab, download *"Relative risks: all risk factors except for
-ambient air pollution, alcohol, smoking, and temperature [XLSX]"* (log in with
-your IHME account when prompted). Save it, unrenamed, as
+`tools/prepare_data.py` fetches the age-aggregated dietary exposure–response
+curves from the IHME Burden-of-Proof tool
+(<https://vizhub.healthdata.org/burden-of-proof/>) and caches them at
+`data/raw/bop_rr_curves.csv`. **No login is required** — the JSON endpoints sit
+behind Cloudflare's edge bot-check only, which a normal browser User-Agent
+passes. (Automated cloud IPs may get a 403; in that case run the tool once from a
+normal machine — the curves cache and are reused thereafter.)
+
+The Burden-of-Proof tool serves only an age-aggregated ("All Ages") curve per
+risk–cause pair. The per-age structure is restored at build time from a curated
+multiplicative log-RR **age-attenuation** table
+(`tools/reference/rr_age_attenuation.csv`), and each curve is clipped at a
+curated **TMREL** (`tools/reference/rr_tmrel.csv`, GBD 2023 appendix Table 18).
+The age-attenuation table is produced once by
+`tools/generate_rr_age_attenuation.py` from the GBD 2019 relative-risk workbook
+(GBD's documented 60-64 reference age, the only remaining use of GBD 2019). To
+rebuild it, download *"Relative risks: all risk factors except for ambient air
+pollution, alcohol, smoking, and temperature [XLSX]"* from
+<https://ghdx.healthdata.org/record/ihme-data/gbd-2019-relative-risks> (free IHME
+account) and save it, unrenamed, as
 `data/raw/IHME_GBD_2019_RELATIVE_RISKS_Y2020M10D15.XLSX`.
 
 ### 2. IHME GBD 2023 cause-specific death rates (manual)
@@ -75,15 +93,16 @@ The red-meat dose–response curve is not from a downloadable dataset: it is a
 small curated table of log-linear curves from literature meta-analyses, bundled
 at `tools/reference/red_meat_rr_log_linear.csv` (Bechthold et al. 2019 for
 CHD/Stroke, Li et al. 2024 for T2DM, Chan et al. 2011 for CRC), age-attenuated
-using the GBD red-meat curve's age structure. These meta-analyses are calibrated
-on **unprocessed** red meat, which is appropriate because processed meat is
-modelled separately.
+using the curated age-attenuation table. The Burden-of-Proof red-meat curve is
+used only for its exposure grid (the override is evaluated on it). These
+meta-analyses are calibrated on **unprocessed** red meat, which is appropriate
+because processed meat is modelled separately.
 
 ### Processed-meat relative risk
 
-Taken directly from the GBD 2019 dose–response curves for "diet high in
-processed meat" (CHD/IHD, T2DM, CRC; no stroke), converted to the model's fresh
-mass basis.
+Taken directly from the GBD 2023 Burden-of-Proof dose–response curves for "diet
+high in processed meat" (CHD/IHD, T2DM, CRC; no ischemic stroke curve),
+converted to the model's fresh mass basis and age-expanded like the other curves.
 
 ## Baseline diet
 
@@ -93,11 +112,12 @@ from the GDD-IA processed fraction). Unlike the health data, this is a *derived
 research product* rather than a public raw download.
 
 > **Temporary provenance.** The committed baseline-diet CSVs are currently
-> produced from the sibling `food-opt` project (openly available during
-> development) via `tools/baseline_diet_from_foodopt.py`. They will be published
-> as a standalone dataset on **Zenodo**, after which `mealhealth` will fetch
-> them from there and that tool will be retired. Until then the committed CSVs
-> are the canonical artifacts and do not need regenerating.
+> produced from the sibling **GLADE** project (the Global Land, Agriculture, Diet
+> and Emissions model, formerly `food-opt`; openly available during development)
+> via `tools/baseline_diet_from_glade.py`. They will be published as a standalone
+> dataset on **Zenodo**, after which `mealhealth` will fetch them from there and
+> that tool will be retired. Until then the committed CSVs are the canonical
+> artifacts and do not need regenerating.
 
 ## Licensing summary (important)
 
@@ -133,8 +153,10 @@ licences and regenerate the data themselves.
 
 When publishing results, cite:
 
-* Global Burden of Disease Collaborative Network, GBD 2019 Relative Risks and
-  GBD 2023 Results, IHME — https://vizhub.healthdata.org/gbd-results/
+* Global Burden of Disease Collaborative Network, GBD 2023 Results and GBD 2023
+  Burden of Proof, IHME — https://vizhub.healthdata.org/gbd-results/ and
+  https://vizhub.healthdata.org/burden-of-proof/ (relative-risk age structure
+  derived from GBD 2019 Relative Risks)
 * Global Dietary Database, Tufts University —
   https://www.globaldietarydatabase.org/
 * United Nations, World Population Prospects —

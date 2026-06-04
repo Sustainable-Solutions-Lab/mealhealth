@@ -14,9 +14,15 @@ Reference year: mortality/population 2020; life table 2024 (nearest available in
 the UN WPP abridged file); intake circa 2018–2020.
 
 ## `relative_risks.csv`
-GBD dietary dose–response curves, in the model fresh/dry basis.
+GBD 2023 Burden-of-Proof dietary dose–response curves, in the model fresh/dry
+basis.
 `risk_factor, cause, age, exposure_g_per_day, rr_mean, rr_low, rr_high`
 - 7 risk factors × their mapped causes × 15 adult age bands (25–29 … 95+).
+  `nuts_seeds` maps to CHD only (no T2DM in GBD 2023); `processed_meat` to
+  CHD/T2DM/CRC (no stroke); `red_meat` uses a literature log-linear override.
+- The age-aggregated BoP curve is age-expanded via a curated multiplicative
+  log-RR attenuation table and clipped at the curated TMREL; each curve is then
+  thinned to ≤40 exposure knots (the model interpolates log-linearly).
 - Meat exposures are converted to fresh retail basis (×1.43 from cooked).
 
 ## `baseline_intake.csv`

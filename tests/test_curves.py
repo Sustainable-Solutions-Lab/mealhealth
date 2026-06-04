@@ -27,7 +27,8 @@ def test_cause_maps_match_gbd():
     curves = RelativeRiskCurves()
     assert set(curves.causes_for("legumes")) == {"CHD"}
     assert set(curves.causes_for("vegetables")) == {"CHD", "Stroke"}
-    assert set(curves.causes_for("nuts_seeds")) == {"CHD", "T2DM"}
+    # GBD 2023 Burden of Proof no longer links nuts/seeds to T2DM
+    assert set(curves.causes_for("nuts_seeds")) == {"CHD"}
     assert set(curves.causes_for("fruits")) == {"CHD", "Stroke", "T2DM"}
     assert set(curves.causes_for("red_meat")) == {"CHD", "Stroke", "T2DM", "CRC"}
     # GBD processed meat: no stroke

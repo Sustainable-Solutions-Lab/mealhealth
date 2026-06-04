@@ -12,22 +12,24 @@ no longer depends on any other project to prepare its data.
 
 Outputs (schemas documented in ``src/mealhealth/data/DATA_PROVENANCE.md``):
 
-- ``relative_risks.csv``  GBD 2019 dietary dose–response curves (model basis):
-                          risk_factor, cause, age, exposure_g_per_day,
-                          rr_mean, rr_low, rr_high
+- ``relative_risks.csv``  GBD 2023 Burden-of-Proof dose–response curves
+                          (model basis): risk_factor, cause, age,
+                          exposure_g_per_day, rr_mean, rr_low, rr_high
 - ``mortality.csv``       GBD 2023 cause-specific death rates:
                           age, cause, country, death_rate_per_1000
 - ``population.csv``      UN WPP population by age: age, country, population
 - ``life_table.csv``      UN WPP abridged life table: country, age, lx, ex
 
 Raw inputs live under ``data/raw/`` (see ``docs/data_sources.md`` for how to
-obtain each one). The two UN WPP files are public and downloaded automatically;
-the two IHME GBD files require a (free) IHME account and must be downloaded
-manually beforehand.
+obtain each one). The two UN WPP files and the GBD 2023 Burden-of-Proof RR
+curves are fetched automatically; the GBD 2023 cause-specific death-rate CSV
+requires a (free) IHME account and must be downloaded manually beforehand. The
+relative-risk age structure and TMRELs come from curated tables under
+``tools/reference/`` (see ``tools/generate_rr_age_attenuation.py``).
 
 The *baseline diet* (``baseline_intake.csv``, ``baseline_calories.csv``) is a
 separate dataset and is **not** built here — see
-``tools/baseline_diet_from_foodopt.py`` and ``docs/data_sources.md``.
+``tools/baseline_diet_from_glade.py`` and ``docs/data_sources.md``.
 
 Run from the repository root with the dev environment::
 
@@ -36,11 +38,14 @@ Run from the repository root with the dev environment::
 
 from __future__ import annotations
 
-import math
+import json
 from pathlib import Path
 import re
+import urllib.error
+import urllib.parse
 import urllib.request
 
+import numpy as np
 import pandas as pd
 import pycountry
 
@@ -56,13 +61,19 @@ OUT_DIR = ROOT / "src" / "mealhealth" / "data"
 REFERENCE_YEAR = 2020
 
 # Raw inputs (placed under data/raw/; see docs/data_sources.md).
-GBD_RR_XLSX = RAW_DIR / "IHME_GBD_2019_RELATIVE_RISKS_Y2020M10D15.XLSX"
 GBD_MORTALITY_CSV = RAW_DIR / f"IHME-GBD_2023-death-rates-{REFERENCE_YEAR}.csv"
 WPP_POPULATION_GZ = RAW_DIR / "WPP_population.csv.gz"
 WPP_LIFE_TABLE_GZ = RAW_DIR / "WPP_life_table.csv.gz"
+# Cached GBD 2023 Burden-of-Proof dose-response curves (fetched automatically,
+# no login; one row per curve point in the GBD intake basis). Gitignored.
+BOP_CURVES_CSV = RAW_DIR / "bop_rr_curves.csv"
 
-# Bundled curated red-meat dose–response curve (literature meta-analyses).
+# Bundled curated regeneration inputs (tools/reference/):
+#   red-meat literature dose-response curve, the GBD 2023 TMREL table, and the
+#   age-attenuation ratios (GBD 2019 age structure, normalized to 60-64).
 RED_MEAT_RR_CSV = REFERENCE_DIR / "red_meat_rr_log_linear.csv"
+RR_TMREL_CSV = REFERENCE_DIR / "rr_tmrel.csv"
+RR_AGE_ATTENUATION_CSV = REFERENCE_DIR / "rr_age_attenuation.csv"
 
 # Public UN WPP downloads (CC BY 3.0 IGO), fetched automatically when absent.
 WPP_POPULATION_URL = (
@@ -75,6 +86,48 @@ WPP_LIFE_TABLE_URL = (
     "1_Indicator%20(Standard)/CSV_FILES/"
     "WPP2024_Life_Table_Abridged_Medium_2024-2100.csv.gz"
 )
+
+# IHME Burden-of-Proof JSON API (GBD 2023 dietary exposure-response curves).
+# No login required: the endpoints sit behind Cloudflare's edge bot-check only,
+# which a normal browser User-Agent passes. (Automated cloud IPs may get a 403;
+# in that case run this once from a normal machine — the curves are cached.)
+BOP_API_BASE = "https://vizhub.healthdata.org/burden-of-proof/api/v1"
+BOP_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64; rv:147.0) Gecko/20100101 Firefox/147.0"
+)
+
+# Stable GBD identifiers driving the Burden-of-Proof retrieval.
+GBD_REI_ID: dict[str, int] = {
+    "fruits": 111,
+    "vegetables": 112,
+    "whole_grains": 113,
+    "legumes": 333,
+    "nuts_seeds": 114,
+    "red_meat": 116,
+    "processed_meat": 117,
+}
+GBD_CAUSE_ID: dict[str, int] = {
+    "CHD": 493,  # Ischemic heart disease
+    "Stroke": 495,  # Ischemic stroke
+    "T2DM": 976,  # Diabetes mellitus type 2
+    "CRC": 441,  # Colon and rectum cancer
+}
+
+# Risk factor -> causes it affects, per GBD 2023 Burden of Proof. nuts_seeds no
+# longer links to T2DM (absent in GBD 2023); processed_meat has no ischemic
+# stroke curve. red_meat keeps a literature override (see ALTERNATIVE_RR).
+RISK_CAUSE_MAP: dict[str, list[str]] = {
+    "fruits": ["CHD", "Stroke", "T2DM"],
+    "vegetables": ["CHD", "Stroke"],
+    "whole_grains": ["CHD", "Stroke", "T2DM", "CRC"],
+    "legumes": ["CHD"],
+    "nuts_seeds": ["CHD"],
+    "red_meat": ["CHD", "Stroke", "T2DM", "CRC"],
+    "processed_meat": ["CHD", "T2DM", "CRC"],
+}
+
+# Risks whose BoP dose-response is replaced by a log-linear literature curve.
+ALTERNATIVE_RR: dict[str, Path] = {"red_meat": RED_MEAT_RR_CSV}
 
 # Conversion of the RR-curve x-axis (and meat exposures) from GBD/GDD
 # "as-consumed" bases onto the model's fresh/dry consumption basis, so that a
@@ -92,36 +145,24 @@ RR_BASIS_FACTOR: dict[str, float] = {
     "processed_meat": MEAT_COOKED_TO_FRESH,
 }
 
-# IHME GBD relative-risk block names (XLSX column 0) -> model risk factor.
-GBD_RISK_NAMES = {
-    "Diet low in fruits": "fruits",
-    "Diet low in vegetables": "vegetables",
-    "Diet low in whole grains": "whole_grains",
-    "Diet low in legumes": "legumes",
-    "Diet low in nuts and seeds": "nuts_seeds",
-    "Diet high in red meat": "red_meat",
-    "Diet high in processed meat": "processed_meat",
-}
-
-# 15 adult GBD age groups; Excel column index -> label.
-ADULT_AGE_COLUMNS = {
-    13: "25-29",
-    14: "30-34",
-    15: "35-39",
-    16: "40-44",
-    17: "45-49",
-    18: "50-54",
-    19: "55-59",
-    20: "60-64",
-    21: "65-69",
-    22: "70-74",
-    23: "75-79",
-    24: "80-84",
-    25: "85-89",
-    26: "90-94",
-    27: "95+",
-}
-ADULT_AGE_LABELS = list(ADULT_AGE_COLUMNS.values())
+# The 15 adult GBD age buckets the dietary RR curves span (>= 25 y).
+ADULT_AGE_LABELS = [
+    "25-29",
+    "30-34",
+    "35-39",
+    "40-44",
+    "45-49",
+    "50-54",
+    "55-59",
+    "60-64",
+    "65-69",
+    "70-74",
+    "75-79",
+    "80-84",
+    "85-89",
+    "90-94",
+    "95+",
+]
 
 AGE_BUCKETS = [
     "<1",
@@ -147,22 +188,14 @@ AGE_BUCKETS = [
     "95+",
 ]
 
-# IHME outcome name -> model cause (GBD relative-risk sheet uses "type 2").
-GBD_RR_CAUSE_MAP = {
-    "Ischemic heart disease": "CHD",
-    "Ischemic stroke": "Stroke",
-    "Diabetes mellitus type 2": "T2DM",
-    "Colon and rectum cancer": "CRC",
-}
-
-_NUM = re.compile(r"[-+]?(?:\d+\.\d+|\d+)")
-
 
 def _ensure_raw_downloads() -> None:
     """Download the public UN WPP files into data/raw/ when missing.
 
-    The two IHME GBD files require an account and cannot be auto-downloaded;
-    a clear error points the developer at the acquisition guide.
+    The GBD 2023 cause-specific death-rate CSV requires a (free) IHME account
+    and cannot be auto-downloaded; a clear error points the developer at the
+    acquisition guide. The GBD 2023 relative-risk curves are fetched separately
+    from the Burden-of-Proof tool (no login) by :func:`_fetch_bop_curves`.
     """
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     for path, url in (
@@ -174,12 +207,10 @@ def _ensure_raw_downloads() -> None:
         print(f"Downloading {path.name} from UN WPP ...")
         urllib.request.urlretrieve(url, path)  # noqa: S310 (trusted UN URL)
 
-    missing = [p for p in (GBD_RR_XLSX, GBD_MORTALITY_CSV) if not p.exists()]
-    if missing:
-        names = "\n  ".join(str(p) for p in missing)
+    if not GBD_MORTALITY_CSV.exists():
         raise FileNotFoundError(
-            "Missing IHME GBD raw inputs (require a free IHME account; see "
-            f"docs/data_sources.md for how to download them):\n  {names}"
+            "Missing IHME GBD raw input (requires a free IHME account; see "
+            f"docs/data_sources.md for how to download it):\n  {GBD_MORTALITY_CSV}"
         )
 
 
@@ -188,104 +219,108 @@ def _ensure_raw_downloads() -> None:
 # --------------------------------------------------------------------------
 
 
-def _parse_rr_cell(cell: object) -> tuple[float, float, float] | None:
-    """Parse '1.13 \\n (1 to 1.26)' -> (mean, low, high)."""
-    if isinstance(cell, (int, float)) and not (
-        isinstance(cell, float) and math.isnan(cell)
-    ):
-        v = float(cell)
-        return v, v, v
-    if not isinstance(cell, str):
-        return None
-    nums = [float(x) for x in _NUM.findall(cell)]
-    if not nums:
-        return None
-    mean = nums[0]
-    low = nums[1] if len(nums) > 1 else mean
-    high = nums[2] if len(nums) > 2 else mean
-    return mean, low, high
+_RR_CURVE_COLS = [
+    "risk_factor",
+    "cause",
+    "exposure_g_per_day",
+    "rr_mean",
+    "rr_low",
+    "rr_high",
+]
 
 
-def _fill_missing_ages(df: pd.DataFrame) -> pd.DataFrame:
-    """Ensure every (risk, cause, exposure) triple has all 15 adult ages.
+def _bop_get(path: str, **params) -> object:
+    """GET one Burden-of-Proof JSON endpoint with a browser User-Agent."""
+    qs = urllib.parse.urlencode(params)
+    url = f"{BOP_API_BASE}/{path}" + (f"?{qs}" if qs else "")
+    req = urllib.request.Request(  # noqa: S310 (trusted IHME host)
+        url,
+        headers={
+            "User-Agent": BOP_USER_AGENT,
+            "Accept": "application/json, text/plain, */*",
+            "Referer": "https://vizhub.healthdata.org/burden-of-proof/",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=120) as resp:  # noqa: S310
+        return json.load(resp)
 
-    Missing ages copy from the nearest younger age (then nearest older).
+
+def _fetch_bop_curves() -> pd.DataFrame:
+    """Fetch the all-ages GBD 2023 Burden-of-Proof RR curve for every needed pair.
+
+    Returns one row per curve point in the GBD intake basis::
+
+        risk_factor, cause, exposure_g_per_day, rr_mean, rr_low, rr_high
+
+    Every ``(risk, cause)`` in :data:`RISK_CAUSE_MAP` must be offered by the
+    tool (red_meat is included so its exposure grid is available for the
+    literature override). The result is cached to ``BOP_CURVES_CSV``.
     """
-    rows = []
-    for (risk, cause, exp), grp in df.groupby(
-        ["risk_factor", "cause", "exposure_g_per_day"]
-    ):
-        have = {r["age"]: r for _, r in grp.iterrows()}
-        for i, age in enumerate(ADULT_AGE_LABELS):
-            if age in have:
-                continue
-            donor = None
-            for j in range(i - 1, -1, -1):
-                if ADULT_AGE_LABELS[j] in have:
-                    donor = have[ADULT_AGE_LABELS[j]]
-                    break
-            if donor is None:
-                for j in range(i + 1, len(ADULT_AGE_LABELS)):
-                    if ADULT_AGE_LABELS[j] in have:
-                        donor = have[ADULT_AGE_LABELS[j]]
-                        break
-            assert donor is not None, (risk, cause, exp)
-            rows.append(
-                {
-                    "risk_factor": risk,
-                    "cause": cause,
-                    "age": age,
-                    "exposure_g_per_day": exp,
-                    "rr_mean": donor["rr_mean"],
-                    "rr_low": donor["rr_low"],
-                    "rr_high": donor["rr_high"],
-                }
-            )
-    if rows:
-        df = pd.concat([df, pd.DataFrame(rows)], ignore_index=True)
+    manifest = _bop_get("metadata/risk_cause")  # {rei_id: [cause_id, ...]}
+    rows: list[dict] = []
+    for risk, causes in RISK_CAUSE_MAP.items():
+        rei = GBD_REI_ID[risk]
+        available = set(manifest.get(str(rei), []))
+        for cause in causes:
+            cid = GBD_CAUSE_ID[cause]
+            if cid not in available:
+                raise ValueError(
+                    f"{risk}->{cause} (rei {rei}, cause {cid}) not offered by the "
+                    "Burden-of-Proof tool; check GBD_REI_ID / RISK_CAUSE_MAP."
+                )
+            meta = _bop_get("risk_cause_metadata", risk=rei, cause=cid)
+            if meta.get("risk_unit") != "g/day":
+                raise ValueError(
+                    f"{risk}->{cause}: unexpected BoP exposure unit "
+                    f"{meta.get('risk_unit')!r} (only 'g/day' is supported)"
+                )
+            curve = _bop_get("output_data", risk=rei, cause=cid)
+            xs = [float(p["risk"]) for p in curve]
+            if xs != sorted(xs):
+                raise ValueError(f"{risk}->{cause}: BoP exposure grid not ascending")
+            for p in curve:
+                rr_mean = float(p["linear_cause"])
+                rr_low = float(p["linear_cause_lower"])
+                rr_high = float(p["linear_cause_upper"])
+                if not (rr_low > 0 and rr_mean > 0 and rr_high > 0):
+                    raise ValueError(
+                        f"{risk}->{cause}: non-positive RR at x={p['risk']}"
+                    )
+                rows.append(
+                    {
+                        "risk_factor": risk,
+                        "cause": cause,
+                        "exposure_g_per_day": float(p["risk"]),
+                        "rr_mean": rr_mean,
+                        "rr_low": rr_low,
+                        "rr_high": rr_high,
+                    }
+                )
+            print(f"  BoP {risk} -> {cause}: {len(curve)} points")
+
+    return (
+        pd.DataFrame(rows, columns=_RR_CURVE_COLS)
+        .sort_values(["risk_factor", "cause", "exposure_g_per_day"])
+        .reset_index(drop=True)
+    )
+
+
+def _load_bop_curves() -> pd.DataFrame:
+    """Return the cached BoP curves, fetching them once if the cache is absent."""
+    if BOP_CURVES_CSV.exists():
+        return pd.read_csv(BOP_CURVES_CSV)
+    print("Fetching GBD 2023 Burden-of-Proof relative-risk curves ...")
+    try:
+        df = _fetch_bop_curves()
+    except urllib.error.HTTPError as exc:  # pragma: no cover - network dependent
+        raise RuntimeError(
+            "Burden-of-Proof fetch failed "
+            f"({exc.code} {exc.reason}); cloud IPs may be blocked by the edge "
+            "bot-check. Run this once from a normal machine — the curves cache "
+            f"to {BOP_CURVES_CSV}."
+        ) from exc
+    df.to_csv(BOP_CURVES_CSV, index=False)
     return df
-
-
-def _parse_rr_block(
-    raw: pd.DataFrame, start: int, end: int, risk: str, basis_factor: float
-) -> list[dict]:
-    """Parse one 'Diet ...' GBD RR block into tidy records.
-
-    Exposures (``g/day``) are multiplied by *basis_factor* to convert the
-    curve x-axis from the GBD basis onto the model's consumption basis.
-    """
-    records: list[dict] = []
-    for _, row in raw.iloc[start:end].iterrows():
-        outcome = row[0]
-        exposure = row[1]
-        if not isinstance(outcome, str) or not isinstance(exposure, str):
-            continue
-        if outcome not in GBD_RR_CAUSE_MAP:
-            continue
-        cause = GBD_RR_CAUSE_MAP[outcome]
-        m = re.match(r"\s*([0-9.]+)\s*g/day", exposure)
-        if not m:
-            continue
-        exp_g = float(m.group(1)) * basis_factor
-        for col, age in ADULT_AGE_COLUMNS.items():
-            if col >= len(row):
-                continue
-            parsed = _parse_rr_cell(row[col])
-            if parsed is None:
-                continue
-            mean, low, high = parsed
-            records.append(
-                {
-                    "risk_factor": risk,
-                    "cause": cause,
-                    "age": age,
-                    "exposure_g_per_day": exp_g,
-                    "rr_mean": mean,
-                    "rr_low": low,
-                    "rr_high": high,
-                }
-            )
-    return records
 
 
 def _parse_per_unit(per_unit: str) -> float:
@@ -296,128 +331,203 @@ def _parse_per_unit(per_unit: str) -> float:
     return float(parts[0])
 
 
-def _extract_age_attenuation(
-    df: pd.DataFrame, risk_factor: str
-) -> dict[tuple[str, str], float]:
-    """Per-(cause, age) attenuation = log(RR_age)/log(RR_youngest) in [0, 1].
+def _override_all_ages(risk: str, causes: list[str], grid: list[float]) -> pd.DataFrame:
+    """Build all-ages log-linear curves ``RR(x) = rr^(x / per_unit)`` from a CSV.
 
-    Captures how the GBD dose–response effect attenuates with age, so the
-    log-linear replacement curve keeps the original age structure.
+    Used for risks in :data:`ALTERNATIVE_RR` (red meat). The exposure *grid* is
+    the basis-converted BoP grid so the model basis is preserved; the central/CI
+    multipliers come from the literature meta-analyses in the curated CSV.
     """
-    risk_data = df[df["risk_factor"] == risk_factor]
-    youngest = ADULT_AGE_LABELS[0]
-    attenuation: dict[tuple[str, str], float] = {}
-
-    for cause in risk_data["cause"].unique():
-        cause_data = risk_data[risk_data["cause"] == cause]
-        exposures = [
-            x for x in sorted(cause_data["exposure_g_per_day"].unique()) if x > 0
-        ]
-        if not exposures:
-            for age in ADULT_AGE_LABELS:
-                attenuation[(cause, age)] = 1.0
-            continue
-        ref_x = exposures[-1]
-
-        youngest_row = cause_data[
-            (cause_data["age"] == youngest)
-            & (cause_data["exposure_g_per_day"] == ref_x)
-        ]
-        if youngest_row.empty or youngest_row["rr_mean"].values[0] == 1.0:
-            for age in ADULT_AGE_LABELS:
-                attenuation[(cause, age)] = 1.0
-            continue
-        log_rr_youngest = math.log(float(youngest_row["rr_mean"].values[0]))
-        if abs(log_rr_youngest) < 1e-10:
-            for age in ADULT_AGE_LABELS:
-                attenuation[(cause, age)] = 1.0
-            continue
-
-        for age in ADULT_AGE_LABELS:
-            age_row = cause_data[
-                (cause_data["age"] == age) & (cause_data["exposure_g_per_day"] == ref_x)
-            ]
-            if age_row.empty:
-                attenuation[(cause, age)] = 1.0
-                continue
-            att = math.log(float(age_row["rr_mean"].values[0])) / log_rr_youngest
-            attenuation[(cause, age)] = max(0.0, min(1.0, att))
-
-    return attenuation
-
-
-def _apply_red_meat_log_linear(df: pd.DataFrame) -> pd.DataFrame:
-    """Replace the GBD red-meat curve with age-corrected log-linear curves.
-
-    The replacement uses the literature meta-analysis central/CI estimates in
-    ``red_meat_rr_log_linear.csv`` (Bechthold 2019, Li 2024, Chan 2011):
-    ``RR(x) = exp(att * ln(rr) * x / per_unit)``. The exposure grid and the
-    per-(cause, age) attenuation factors are taken from the parsed GBD
-    red-meat curve so the model basis and age structure are preserved.
-    """
-    alt = pd.read_csv(RED_MEAT_RR_CSV)
-    attenuation = _extract_age_attenuation(df, "red_meat")
-    gbd = df[df["risk_factor"] == "red_meat"]
-    if gbd.empty:
-        raise ValueError("No GBD red_meat curve parsed; cannot apply log-linear RR")
-    exposures = sorted(gbd["exposure_g_per_day"].unique())
-
+    alt = pd.read_csv(ALTERNATIVE_RR[risk])
     rows: list[dict] = []
-    for _, row in alt.iterrows():
-        cause = row["outcome"]
-        rr_central = float(row["rr_central"])
-        rr_lower = float(row["rr_lower_95ci"])
-        rr_upper = float(row["rr_upper_95ci"])
-        per_unit = _parse_per_unit(row["per_unit"])
-        for age in ADULT_AGE_LABELS:
-            att = attenuation.get((cause, age), 1.0)
-            for exp_g in exposures:
-                x_ratio = exp_g / per_unit
-                rows.append(
-                    {
-                        "risk_factor": "red_meat",
-                        "cause": cause,
-                        "age": age,
-                        "exposure_g_per_day": exp_g,
-                        "rr_mean": math.exp(att * math.log(rr_central) * x_ratio),
-                        "rr_low": math.exp(att * math.log(rr_lower) * x_ratio),
-                        "rr_high": math.exp(att * math.log(rr_upper) * x_ratio),
-                    }
-                )
+    found: set[str] = set()
+    for _, r in alt.iterrows():
+        cause = str(r["outcome"])
+        if cause not in causes:
+            continue
+        found.add(cause)
+        per_unit = _parse_per_unit(r["per_unit"])
+        central, low, high = (
+            float(r["rr_central"]),
+            float(r["rr_lower_95ci"]),
+            float(r["rr_upper_95ci"]),
+        )
+        for x in grid:
+            ratio = x / per_unit
+            rows.append(
+                {
+                    "risk_factor": risk,
+                    "cause": cause,
+                    "exposure_g_per_day": x,
+                    "rr_mean": central**ratio,
+                    "rr_low": low**ratio,
+                    "rr_high": high**ratio,
+                }
+            )
+    missing = set(causes) - found
+    if missing:
+        raise ValueError(
+            f"Override RR CSV for '{risk}' missing causes: {sorted(missing)}"
+        )
+    return pd.DataFrame(rows, columns=_RR_CURVE_COLS)
 
-    df = df[df["risk_factor"] != "red_meat"]
-    return pd.concat([df, pd.DataFrame(rows)], ignore_index=True)
+
+def _ensure_knot(g: pd.DataFrame, x0: float) -> pd.DataFrame:
+    """Insert exposure knot x0 (log-linear interpolation) if not already present."""
+    xs = g["exposure_g_per_day"].to_numpy(float)
+    if np.any(np.isclose(xs, x0)):
+        return g
+    row = {
+        "risk_factor": g["risk_factor"].iloc[0],
+        "cause": g["cause"].iloc[0],
+        "exposure_g_per_day": float(x0),
+    }
+    for col in ("rr_mean", "rr_low", "rr_high"):
+        row[col] = float(np.exp(np.interp(x0, xs, np.log(g[col].to_numpy(float)))))
+    return (
+        pd.concat([g, pd.DataFrame([row])], ignore_index=True)
+        .sort_values("exposure_g_per_day")
+        .reset_index(drop=True)
+    )
+
+
+def _clip_at_tmrel(g: pd.DataFrame, tmrel: float, risk_type: str) -> pd.DataFrame:
+    """Truncate the curve at the TMREL so the flat plateau lies on its benefit side.
+
+    Protective risks: keep exposures <= TMREL (the model clamps flat beyond the
+    data range, giving no further benefit above the TMREL). Harmful risks: keep
+    exposures >= TMREL. The model then evaluates PAF relative to the baseline
+    diet; the TMREL only shapes where each curve plateaus.
+    """
+    g = g.sort_values("exposure_g_per_day").reset_index(drop=True)
+    xs = g["exposure_g_per_day"].to_numpy(float)
+    risk, cause = g["risk_factor"].iloc[0], g["cause"].iloc[0]
+
+    if risk_type == "protective":
+        if tmrel <= xs[0]:
+            raise ValueError(
+                f"Protective TMREL {tmrel} <= min exposure for {risk}->{cause}"
+            )
+        if tmrel < xs[-1]:
+            g = _ensure_knot(g, tmrel)
+            g = g[g["exposure_g_per_day"] <= tmrel + 1e-9]
+    elif risk_type == "harmful":
+        if tmrel >= xs[-1]:
+            raise ValueError(
+                f"Harmful TMREL {tmrel} >= max exposure for {risk}->{cause}"
+            )
+        if tmrel > xs[0]:
+            g = _ensure_knot(g, tmrel)
+            g = g[g["exposure_g_per_day"] >= tmrel - 1e-9]
+    else:
+        raise ValueError(f"Unknown risk_type {risk_type!r} for {risk}")
+    return g.reset_index(drop=True)
+
+
+# Max exposure knots kept per curve before age expansion. The model reads RR by
+# log-linear interpolation, so a smooth monotone BoP curve is reproduced to a few
+# tenths of a percent by ~40 evenly-spaced knots (and the red-meat log-linear
+# override is reproduced exactly by any knot subset). Keeps the bundled CSV small.
+MAX_RR_KNOTS = 40
+
+
+def _thin(g: pd.DataFrame, n: int) -> pd.DataFrame:
+    """Subsample an exposure-sorted curve to <= n knots, keeping both endpoints."""
+    g = g.sort_values("exposure_g_per_day").reset_index(drop=True)
+    if len(g) <= n:
+        return g
+    idx = sorted(set(np.linspace(0, len(g) - 1, n).round().astype(int)))
+    return g.iloc[idx].reset_index(drop=True)
+
+
+def _age_expand(
+    g: pd.DataFrame, beta_lookup: dict[tuple[str, str, str], float]
+) -> pd.DataFrame:
+    """Expand an all-ages curve to 15 ages: RR_age = exp(beta(age) * log RR)."""
+    risk, cause = g["risk_factor"].iloc[0], g["cause"].iloc[0]
+    x = g["exposure_g_per_day"].to_numpy(float)
+    log_mean = np.log(g["rr_mean"].to_numpy(float))
+    log_low = np.log(g["rr_low"].to_numpy(float))
+    log_high = np.log(g["rr_high"].to_numpy(float))
+
+    frames = []
+    for age in ADULT_AGE_LABELS:
+        beta = beta_lookup[(risk, cause, age)]
+        frames.append(
+            pd.DataFrame(
+                {
+                    "risk_factor": risk,
+                    "cause": cause,
+                    "age": age,
+                    "exposure_g_per_day": x,
+                    "rr_mean": np.exp(beta * log_mean),
+                    "rr_low": np.exp(beta * log_low),
+                    "rr_high": np.exp(beta * log_high),
+                }
+            )
+        )
+    return pd.concat(frames, ignore_index=True)
 
 
 def build_relative_risks() -> pd.DataFrame:
-    """Parse the GBD 2019 RR workbook into the model-basis dose–response table.
+    """Build the model-basis dose-response table from GBD 2023 Burden of Proof.
 
-    Covers the five plant groups and processed meat directly from the GBD
-    curves; the red-meat curve is then replaced by the literature log-linear
-    curve (GBD red meat is used only for its exposure grid and age structure).
+    For each ``(risk_factor, cause)``: take the all-ages BoP curve (or, for
+    red meat, the literature log-linear override on the BoP exposure grid),
+    convert the exposure axis to the model basis, clip at the curated TMREL,
+    then expand to the 15 adult age groups via the curated multiplicative
+    log-RR age-attenuation table. nuts_seeds->T2DM is absent in GBD 2023.
     """
-    raw = pd.read_excel(GBD_RR_XLSX, header=None)
-    diet_rows = [
-        i for i, v in raw[0].items() if isinstance(v, str) and v.startswith("Diet")
-    ]
+    bop = _load_bop_curves()
+    bop["exposure_g_per_day"] = bop["exposure_g_per_day"] * bop["risk_factor"].map(
+        lambda r: RR_BASIS_FACTOR.get(r, 1.0)
+    )
 
-    records: list[dict] = []
-    for k, start in enumerate(diet_rows):
-        name = str(raw.at[start, 0]).strip()
-        risk = GBD_RISK_NAMES.get(name)
-        if risk is None:
-            continue
-        end = diet_rows[k + 1] if k + 1 < len(diet_rows) else len(raw)
-        factor = RR_BASIS_FACTOR.get(risk, 1.0)
-        records.extend(_parse_rr_block(raw, start + 1, end, risk, factor))
+    beta_df = pd.read_csv(RR_AGE_ATTENUATION_CSV)
+    beta_lookup = {
+        (r, c, a): float(b)
+        for r, c, a, b in beta_df[["risk_factor", "cause", "age", "beta"]].itertuples(
+            index=False
+        )
+    }
 
-    df = pd.DataFrame(records)
-    df = _fill_missing_ages(df)
-    df = _apply_red_meat_log_linear(df)
-    df = df.sort_values(
-        ["risk_factor", "cause", "age", "exposure_g_per_day"]
-    ).reset_index(drop=True)
-    return df
+    tmrel_df = pd.read_csv(RR_TMREL_CSV).set_index("risk_factor")
+    tmrel_model: dict[str, float] = {}
+    risk_type: dict[str, str] = {}
+    for risk in RISK_CAUSE_MAP:
+        row = tmrel_df.loc[risk]
+        f = RR_BASIS_FACTOR.get(risk, 1.0)
+        tmrel_model[risk] = (
+            0.5 * (float(row["tmrel_low"]) + float(row["tmrel_high"])) * f
+        )
+        risk_type[risk] = str(row["risk_type"])
+
+    out_frames: list[pd.DataFrame] = []
+    for risk, causes in RISK_CAUSE_MAP.items():
+        if risk in ALTERNATIVE_RR:
+            grid = sorted(
+                bop.loc[bop["risk_factor"] == risk, "exposure_g_per_day"].unique()
+            )
+            if not grid:
+                raise ValueError(f"No BoP exposure grid for override risk '{risk}'")
+            all_ages = _override_all_ages(risk, causes, grid)
+        else:
+            all_ages = bop[(bop["risk_factor"] == risk) & (bop["cause"].isin(causes))][
+                _RR_CURVE_COLS
+            ]
+        for cause in causes:
+            g = all_ages[all_ages["cause"] == cause]
+            if g.empty:
+                raise ValueError(f"Missing curve for {risk}->{cause}")
+            g = _clip_at_tmrel(g, tmrel_model[risk], risk_type[risk])
+            g = _thin(g, MAX_RR_KNOTS)
+            out_frames.append(_age_expand(g, beta_lookup))
+
+    return (
+        pd.concat(out_frames, ignore_index=True)
+        .sort_values(["risk_factor", "cause", "age", "exposure_g_per_day"])
+        .reset_index(drop=True)
+    )
 
 
 # --------------------------------------------------------------------------
