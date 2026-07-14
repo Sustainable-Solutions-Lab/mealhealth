@@ -20,6 +20,9 @@ from a different source:
 - **Seafood omega-3 baseline** — built by
   `tools/build_baseline_nutrients_from_gbd.py` from the GBD 2023 risk-exposure
   files and WPP weights. Independent of everything below it.
+- **Sodium mediator baseline** — country × age × sex urinary-sodium and SBP
+  exposure built by `tools/build_baseline_mediators_from_gbd.py` from the same
+  GBD 2023 release. Sodium remains a prototype, not a public API factor.
 - **Baseline diet** — per-country food-group intakes and calories. A *derived
   research product* (not a public raw download); see [Baseline
   diet](#baseline-diet).
@@ -32,6 +35,7 @@ from a different source:
 | `mortality.csv`           | IHME GBD 2023 cause-specific death rates (2020) | IHME non-commercial |
 | `standard_life_table.csv` | IHME GBD 2023 theoretical minimum-risk life table | IHME non-commercial |
 | `baseline_nutrients.csv`  | Dietary files from IHME GBD 2023 Risk Exposure Estimates 1990–2023 + UN WPP weights | IHME non-commercial / CC BY 3.0 IGO |
+| `baseline_mediators.csv`  | High-sodium and high-SBP files from IHME GBD 2023 Risk Exposure Estimates 1990–2023 | IHME non-commercial |
 | `population.csv`          | UN World Population Prospects (population by age) | CC BY 3.0 IGO |
 | `local_life_table.csv`    | UN World Population Prospects (abridged life tables) | CC BY 3.0 IGO |
 | `baseline_intake.csv`     | GDD-IA per-country food-group intakes (NHANES override for the USA), via GLADE | CC BY 4.0 / public domain — see [below](#baseline-diet) |
@@ -80,17 +84,6 @@ Three curated tables under `tools/reference/` restore the rest:
   colorectal cancer). These are calibrated on **unprocessed** red meat, which is
   the right basis because processed meat is modelled separately. The
   Burden-of-Proof red-meat curve is used only for its exposure grid.
-||||||| parent of 44c4a03 (Prototype sodium mean-shift runtime)
-Run `python tools/build_baseline_nutrients_from_gbd.py`. It selects 2020 and
-the 15 adult age groups, identifies national GBD locations through the
-cause-specific mortality input, and weights every age-sex exposure cell with
-WPP 2020 male/female population. WPP's 95–99 and 100+ groups are folded into
-GBD's 95+ group. The output retains mean exposure in g/day; uncertainty bounds
-are validated but not aggregated because exposure uncertainty is not propagated
-by the model. All 175 package countries are direct except French Guiana, which
-uses the documented `GUF → FRA` proxy. The staged sodium file is checksum-
-validated but remains inactive pending a dietary-intake-to-urinary-excretion
-model.
 
 Processed meat is taken directly from its own GBD 2023 Burden-of-Proof curves
 (CHD/type 2 diabetes/colorectal cancer; there is no ischemic-stroke curve),
@@ -134,7 +127,7 @@ medium variant) into `data/raw/` if absent:
 - Population by 5-year age group → `WPP_population.csv.gz`
 - Abridged life table → `WPP_life_table.csv.gz`
 
-## Seafood omega-3 baseline
+## Seafood omega-3 and sodium mediator baselines
 
 `baseline_nutrients.csv` is built separately by
 `tools/build_baseline_nutrients_from_gbd.py`, directly from official GBD/WPP
@@ -145,21 +138,25 @@ inputs. It has **no dependency on the baseline diet or on GLADE**.
 1. Sign in to a free IHME account and open the
    [GBD 2023 Risk Exposure Estimates 1990–2023 record](https://ghdx.healthdata.org/record/ihme-data/gbd-2023-risk-exposure-estimates-1990-2023).
 2. Accept the IHME Free-of-Charge Non-commercial User Agreement and download
-   both authenticated archives:
+   these authenticated archives:
    - [`IHME_GBD_2023_RISK_EXPOSURE_DIET_1.zip`](https://ghdx.healthdata.org/sites/default/files/record-attached-files/IHME_GBD_2023_RISK_EXPOSURE_DIET_1.zip)
    - [`IHME_GBD_2023_RISK_EXPOSURE_DIET_2.zip`](https://ghdx.healthdata.org/sites/default/files/record-attached-files/IHME_GBD_2023_RISK_EXPOSURE_DIET_2.zip)
+   - `IHME_GBD_2023_RISK_EXPOSURE_OTHER_1.zip`
 
    The direct links redirect to login unless the browser session is
    authenticated; the builder does not attempt the download itself.
-3. Extract them under `data/raw/` as `IHME_GBD_2023_RISK_EXPOSURE_DIET_1/` and
-   `IHME_GBD_2023_RISK_EXPOSURE_DIET_2/`. This release pins these files and
+3. Extract them under `data/raw/` as `IHME_GBD_2023_RISK_EXPOSURE_DIET_1/`,
+   `IHME_GBD_2023_RISK_EXPOSURE_DIET_2/`, and
+   `IHME_GBD_2023_RISK_EXPOSURE_OTHER_1/`. This release pins these files and
    SHA-256 digests:
    - `…DIET_1/IHME_GBD_2023_RISK_EXPOSURE_DIET_HIGH_IN_SODIUM_Y2025M10D10.CSV`
      — `0ea88321aba71f3c4cba0ca02472928ff06c78600e3a0a182bae4588217d23fd`
    - `…DIET_2/IHME_GBD_2023_RISK_EXPOSURE_DIET_LOW_IN_SEAFOOD_OMEGA_3_FATTY_ACIDS_Y2025M10D10.CSV`
      — `4e80f1047b13251d674da636d6cce35cb56b64878e79774c59f927d569d9b28f`
+   - `…OTHER_1/IHME_GBD_2023_RISK_EXPOSURE_HIGH_SYSTOLIC_BLOOD_PRESSURE_Y2025M10D10.CSV`
+     — `dd317224c33981577ae910f0dd97b6f205de7067b21fee29cefd6736aecaf27e`
 
-### How it's built
+### How the seafood omega-3 baseline is built
 
 ```bash
 uv run python tools/build_baseline_nutrients_from_gbd.py
@@ -174,20 +171,29 @@ package countries are direct except French Guiana, which uses the documented
 `GUF → FRA` proxy. The staged sodium file is checksum-validated but stays
 inactive, pending a dietary-intake-to-urinary-excretion model.
 
+### How the sodium mediator baseline is built
+
+```bash
+uv run python tools/build_baseline_mediators_from_gbd.py
+```
+
+The builder joins 2020 urinary-sodium and high-SBP exposure at country × adult
+age × sex resolution. `baseline_mediators.csv` retains each modeled stratum
+mean and its marginal uncertainty bounds. Those bounds quantify uncertainty in
+the mean; they are not exposure quantiles across people and cannot supply the
+within-stratum usual-SBP standard deviation. The current sodium prototype still
+requires a separately estimated SBP distribution and complete sex-specific
+cause burden before it can be exposed through the public API.
+
 ### Sodium-to-SBP preparatory reference
 
-Sodium is not yet exposed by the public API. Its reviewed response coefficients
-are pinned separately in `tools/reference/sodium_to_sbp.json`, with the native
-published units retained beside the canonical mm Hg per g/day urinary-sodium
-values. `tools/validate_sodium_coefficients.py` checks every conversion and can
-also verify the reviewed source-file hashes with `--source-dir`.
-
-The primary response is from Filippini et al. (2021), with transport
-sensitivities from its hypertension subgroups, Huang et al. (2020), and the
-GBD-lineage model in Mozaffarian et al. (2014). The reference artifact is an
-author-curated transcription, not redistributed article content. Exact source
-filenames, DOI identifiers, locations within each article, and SHA-256 digests
-are stored in the artifact.
+The reviewed response coefficients are pinned in
+`tools/reference/sodium_to_sbp.json`, retaining published native units beside
+the canonical mm Hg per g/day urinary-sodium values.
+`tools/validate_sodium_coefficients.py` checks every unit conversion and can
+verify reviewed source-file hashes with `--source-dir`. The primary response is
+from Filippini et al. (2021), with transport sensitivities from Huang et al.
+(2020), Mozaffarian et al. (2014), and the Filippini hypertension subgroups.
 
 ## Baseline diet
 

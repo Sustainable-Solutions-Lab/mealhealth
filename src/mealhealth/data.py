@@ -94,6 +94,93 @@ def baseline_nutrients() -> pd.DataFrame:
 
 
 @lru_cache(maxsize=1)
+def baseline_mediators() -> pd.DataFrame:
+    """Country-age-sex mean urinary sodium and SBP exposure summaries.
+
+    The ``lower`` and ``upper`` columns are GBD uncertainty bounds on each
+    modeled stratum mean.  They do not describe the distribution of exposure
+    between people within the stratum.
+    """
+    df = _read("baseline_mediators.csv")
+    value_columns = [
+        "sodium_urinary_g_per_day_mean",
+        "sodium_urinary_g_per_day_lower",
+        "sodium_urinary_g_per_day_upper",
+        "sbp_mmhg_mean",
+        "sbp_mmhg_lower",
+        "sbp_mmhg_upper",
+    ]
+    expected_columns = {
+        "country",
+        "age",
+        "sex",
+        *value_columns,
+        "source_country",
+        "source_year",
+    }
+    if set(df.columns) != expected_columns:
+        raise ValueError(
+            "Invalid bundled baseline_mediators.csv schema: expected "
+            f"{sorted(expected_columns)}, got {sorted(df.columns)}"
+        )
+
+    countries = set(baseline_intake()["country"])
+    ages = {
+        "25-29",
+        "30-34",
+        "35-39",
+        "40-44",
+        "45-49",
+        "50-54",
+        "55-59",
+        "60-64",
+        "65-69",
+        "70-74",
+        "75-79",
+        "80-84",
+        "85-89",
+        "90-94",
+        "95+",
+    }
+    expected = {
+        (country, age, sex)
+        for country in countries
+        for age in ages
+        for sex in ("male", "female")
+    }
+    rows = list(df[["country", "age", "sex"]].itertuples(index=False, name=None))
+    actual = set(rows)
+    if len(rows) != len(actual) or actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        raise ValueError(
+            "Invalid bundled mediator baseline coverage: "
+            f"missing={missing[:10]}, extra={extra[:10]}, duplicates="
+            f"{len(rows) - len(actual)}"
+        )
+
+    values = df[value_columns].apply(pd.to_numeric, errors="coerce")
+    if not np.isfinite(values.to_numpy(dtype=float)).all() or (values < 0).any(
+        axis=None
+    ):
+        raise ValueError("Bundled mediator baselines must be finite and non-negative")
+    for prefix in ("sodium_urinary_g_per_day", "sbp_mmhg"):
+        if (
+            (values[f"{prefix}_lower"] > values[f"{prefix}_mean"])
+            | (values[f"{prefix}_mean"] > values[f"{prefix}_upper"])
+        ).any():
+            raise ValueError(f"Invalid {prefix} uncertainty ordering")
+    if set(df["source_year"]) != {2020}:
+        raise ValueError("Bundled mediator baselines must use source_year 2020")
+    expected_sources = df["country"].where(df["country"] != "GUF", "FRA")
+    if not df["source_country"].equals(expected_sources):
+        raise ValueError(
+            "Bundled mediator source_country must be direct except GUF->FRA"
+        )
+    return df
+
+
+@lru_cache(maxsize=1)
 def mortality() -> pd.DataFrame:
     """age, cause, country, death_rate_per_1000."""
     return _read("mortality.csv")

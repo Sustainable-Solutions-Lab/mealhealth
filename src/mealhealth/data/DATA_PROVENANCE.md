@@ -8,9 +8,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 These CSVs are processed/adapted derivatives. The health/demographic files are
 produced by `tools/prepare_data.py` from public raw datasets (IHME GBD, UN WPP);
-the baseline-diet files are a separate dataset, while the nutrient baseline is
-built directly from GBD dietary-risk exposure and WPP (see
-`docs/data_sources.md`).
+the baseline-diet files are a separate dataset, while the nutrient and mediator
+baselines are built directly from GBD risk exposure (and WPP for the aggregated
+nutrient baseline; see `docs/data_sources.md`).
 See `docs/data_sources.md` for sources and licensing (non-commercial).
 Reference year: mortality/population 2020; life table 2024 (nearest available in
 the UN WPP abridged file); intake circa 2018–2020.
@@ -52,6 +52,19 @@ the 15 adult age groups and both sexes with WPP 2020 weights.
   file in GBD 2023 Risk Exposure Estimates 1990–2023 (SHA-256
   `4e80f1047b13251d674da636d6cce35cb56b64878e79774c59f927d569d9b28f`)
   and UN WPP population data.
+
+## `baseline_mediators.csv`
+GBD 2023 urinary-sodium and systolic-blood-pressure exposure by country, adult
+age group, and sex in 2020.
+`country,age,sex,sodium_urinary_g_per_day_mean,sodium_urinary_g_per_day_lower,sodium_urinary_g_per_day_upper,sbp_mmhg_mean,sbp_mmhg_lower,sbp_mmhg_upper,source_country,source_year`
+- All 175 countries have 15 adult ages × two sexes. French Guiana uses the sole
+  proxy, `source_country=FRA`; every other row uses its own country.
+- The `lower` and `upper` values are marginal uncertainty bounds on the GBD
+  modeled stratum mean. They are not within-stratum quantiles and do not supply
+  the usual-SBP standard deviation needed by the sodium mediator.
+- Built by `tools/build_baseline_mediators_from_gbd.py` from the pinned high-
+  sodium (`0ea88321…`) and high-SBP (`dd317224…`) files in GBD 2023 Risk
+  Exposure Estimates 1990–2023.
 
 ## `mortality.csv`
 `age, cause, country, death_rate_per_1000` — GBD cause-specific death rate per
