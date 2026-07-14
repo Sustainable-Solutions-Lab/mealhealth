@@ -4,6 +4,8 @@
 
 """Integration tests and US sanity checks for the public assessment API."""
 
+import math
+
 import pytest
 
 import mealhealth as mh
@@ -40,6 +42,18 @@ def test_empty_meal_zero_effect(mode, age):
     assert r.delta_yll_total == pytest.approx(0.0, abs=1e-9)
     for c in r.causes.values():
         assert c.paf == pytest.approx(0.0, abs=1e-12)
+
+
+def test_omitted_omega3_preserves_existing_assessment():
+    kwargs = {"meal": {"vegetables": 100}, "meal_kcal": 300, "country": "USA"}
+    omitted = mh.assess_meal(**kwargs)
+    explicit_none = mh.assess_meal(**kwargs, seafood_omega3_mg=None)
+    assert "omega3" not in omitted.exposure
+    assert "omega3" not in omitted.risk_attribution
+    assert explicit_none.delta_yll_total == pytest.approx(omitted.delta_yll_total)
+    # Checked against the pre-nutrient implementation: omission must leave the
+    # food-group-only calculation numerically unchanged.
+    assert omitted.delta_yll_total == pytest.approx(43490.50936429071)
 
 
 # --------------------------------------------------------------------------
@@ -91,6 +105,49 @@ def test_population_vs_individual_scale():
     assert (rp.delta_yll_total < 0) == (ri.delta_yll_total < 0)
     # population-annual total (whole country) is far larger in magnitude
     assert abs(rp.delta_yll_total) > abs(ri.delta_yll_total)
+
+
+def test_seafood_omega3_improves_chd():
+    omitted = mh.assess_meal({}, 500, "USA")
+    supplied = mh.assess_meal({}, 500, "USA", seafood_omega3_mg=500)
+    assert supplied.causes["CHD"].paf > omitted.causes["CHD"].paf
+    assert supplied.risk_attribution["omega3"] > 0
+    expected = supplied.f * supplied.baseline_exposure["omega3"] + 0.500
+    assert supplied.exposure["omega3"] == pytest.approx(expected)
+
+
+def test_explicit_zero_omega3_is_not_omission():
+    omitted = mh.assess_meal({}, 500, "USA")
+    zero = mh.assess_meal({}, 500, "USA", seafood_omega3_mg=0.0)
+    assert "omega3" in zero.exposure
+    assert zero.causes["CHD"].paf < omitted.causes["CHD"].paf
+    assert zero.risk_attribution["omega3"] < 0
+
+
+@pytest.mark.parametrize("value", [-1.0, float("nan"), float("inf"), -float("inf")])
+def test_invalid_omega3_amount_rejected(value):
+    with pytest.raises(ValueError, match="seafood_omega3_mg"):
+        mh.assess_meal({}, 500, "USA", seafood_omega3_mg=value)
+
+
+@pytest.mark.parametrize("mode,age", [("population", None), ("age", 60)])
+def test_omega3_paf_matches_curve_knot_handcalc(mode, age):
+    burden = CountryBurden("USA")
+    curves = RelativeRiskCurves()
+    baseline = burden.baseline["omega3"]
+    target = 0.565
+    omega3_mg = (target - baseline) * 1000.0
+    result = mh.assess_meal(
+        {}, 0.0, "USA", mode=mode, age=age, seafood_omega3_mg=omega3_mg
+    )
+    if mode == "population":
+        log_base = _population_log_rr(curves, burden, "omega3", "CHD", baseline)
+        log_target = _population_log_rr(curves, burden, "omega3", "CHD", target)
+    else:
+        log_base = curves.log_rr("omega3", "CHD", "60-64", baseline)
+        log_target = curves.log_rr("omega3", "CHD", "60-64", target)
+    expected_paf = 1.0 - math.exp(log_target - log_base)
+    assert result.causes["CHD"].paf == pytest.approx(expected_paf)
 
 
 # --------------------------------------------------------------------------
@@ -170,3 +227,13 @@ def test_usa_baseline_burden_reasonable():
     assert b.baseline["red_meat"] + b.baseline["processed_meat"] == pytest.approx(
         66.6, abs=1.0
     )
+    assert b.baseline["omega3"] == pytest.approx(0.3110668163)
+
+
+def test_missing_country_nutrient_baseline_raises(monkeypatch):
+    from mealhealth import data
+
+    incomplete = data.baseline_nutrients().query("country != 'USA'")
+    monkeypatch.setattr(data, "baseline_nutrients", lambda: incomplete)
+    with pytest.raises(ValueError, match="missing USA"):
+        CountryBurden("USA")

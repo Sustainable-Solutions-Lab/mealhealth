@@ -48,3 +48,13 @@ def test_meal_exceeds_baseline_clamps_and_warns(usa):
 def test_negative_kcal_rejected(usa):
     with pytest.raises(ValueError):
         build_substituted_diet(usa, {}, -1.0, RISK_FACTORS)
+
+
+def test_nutrient_substitution_uses_internal_grams(usa):
+    diet = build_substituted_diet(
+        usa, {"omega3": 0.250}, 500.0, (*RISK_FACTORS, "omega3")
+    )
+    expected_f = (usa.baseline_kcal - 500.0) / usa.baseline_kcal
+    assert diet.exposure["omega3"] == pytest.approx(
+        expected_f * usa.baseline["omega3"] + 0.250
+    )

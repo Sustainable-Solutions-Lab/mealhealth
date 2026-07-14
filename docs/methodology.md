@@ -22,9 +22,10 @@ benefit. See [Data sources](data_sources.md).)
 
 ## 1. The substituted diet
 
-The user supplies the meal's total energy `C_meal` (kcal) and the mass of each
-risk-factor food group it contains. The baseline diet is scaled down to keep
-total calories constant and the meal is added on top:
+The user supplies the meal's total energy `C_meal` (kcal), the mass of each
+risk-factor food group it contains, and any optional nutrient-factor amount.
+The baseline diet is scaled down to keep total calories constant and the meal
+is added on top:
 
 ```
 f   = (C_base − C_meal) / C_base          (clamped to [0, 1])
@@ -37,6 +38,15 @@ then `f = 0` (the meal becomes the whole day's diet) and a warning is emitted.
 Foods outside the risk groups (poultry, fish, eggs, oils, refined grains, …)
 are **not** entered as food groups; they influence the result only through
 `C_meal`, i.e. via caloric displacement of the baseline.
+
+### Nutrient factors
+
+Seafood omega-3 is supplied as EPA + DHA in mg per meal and converted to g/day
+at the API boundary. It then uses the same substitution, RR, PAF, ΔYLL, and
+attribution machinery as food-group risks. Unlike a missing food-group key,
+which means zero grams, an omitted nutrient (`None`) means the factor is not
+assessed and is removed entirely. An explicit `0.0` is a measured zero: the
+meal adds none but still displaces the country's baseline omega-3 exposure.
 
 ## 2. Relative risk and PAF
 
@@ -132,9 +142,10 @@ from its own GBD curves:
 | vegetables       |  ✓  |   ✓    |      |     |
 | whole grains     |  ✓  |   ✓    |  ✓   |  ✓  |
 | legumes          |  ✓  |        |      |     |
-| nuts & seeds     |  ✓  |        |  ✓   |     |
+| nuts & seeds     |  ✓  |        |      |     |
 | red meat         |  ✓  |   ✓    |  ✓   |  ✓  |
 | processed meat   |  ✓  |        |  ✓   |  ✓  |
+| seafood omega-3  |  ✓  |        |      |     |
 
 "Stroke" is restricted to **ischemic** stroke (the atherosclerotic pathway diet
 acts on); the mortality data is filtered to ischemic stroke to match.
@@ -160,12 +171,13 @@ only the RR curves and the baseline exposure, not mortality or life tables.
   **not** modelled. GBD's sodium effect runs through a blood-pressure-mediated
   pathway in different units, and the SSB/sugar evidence is weak; both were
   optional "bonus" factors in the spec and are out of scope here. The
-  architecture (a `risk_factor` with its own RR curve and baseline exposure)
-  would accommodate them if suitable dose-response data were added.
+  nutrient-factor architecture can accommodate them once suitable exposure
+  conversion and dose-response data are defined.
 * Red-meat RR uses literature log-linear curves
   (Bechthold et al. 2019 for CHD/Stroke, Li et al. 2024 for T2DM,
   Chan et al. 2011 for CRC), which are calibrated on *unprocessed* red meat and
   thus appropriate now that processed meat is separated out. Processed meat uses
   the GBD 2023 Burden-of-Proof dose–response curves directly (CHD/T2DM/CRC; no
   ischemic stroke curve). `nuts_seeds` maps to CHD only, since GBD 2023 no longer
-  links it to T2DM.
+  links it to T2DM. Seafood omega-3 uses the GBD 2023 CHD curve directly and is
+  clipped at its 0.565 g/day midpoint TMREL.

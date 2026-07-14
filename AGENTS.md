@@ -22,6 +22,7 @@ src/mealhealth/
   api.py          # public assess_meal() and helpers
   data/*.csv      # bundled processed data (+ DATA_PROVENANCE.md)
 tools/prepare_data.py              # regenerate health/demographic data from raw (dev only)
+tools/build_baseline_nutrients_from_gbd.py # build GBD/WPP nutrient baselines
 tools/generate_rr_age_attenuation.py # one-off: curated RR age-attenuation table from GBD 2019
 tools/baseline_diet_from_glade.py  # build baseline diet (temporary; see docstring)
 tools/reference/*.csv              # curated regeneration inputs (red-meat RR, TMREL, age attenuation)
@@ -45,6 +46,9 @@ docs/                   # methodology, food groups, data sources, usage
   baseline split comes from the GDD-IA processed fraction).
 * **Mass basis** reconciles GBD's native exposure bases with measured intakes;
   the meal input basis is documented per group in `docs/food_groups.md`.
+* **Optional nutrient factors are separate from food groups.** They use explicit
+  API keywords in mg, convert to the engine's g/day axis, and are excluded when
+  omitted (`None`) but included when explicitly supplied as `0.0`.
 
 ## Dev workflow
 
@@ -76,6 +80,12 @@ bundled dataset; its committed CSVs are canonical and need no regeneration.
 the **GLADE** project (the Global Land, Agriculture, Diet and Emissions model,
 formerly `food-opt`) until the dataset is published on Zenodo — the only place
 the project still references GLADE.
+
+The seafood EPA+DHA baseline (`baseline_nutrients.csv`) is independently built
+from the official GBD 2023 Dietary Risk Exposure Estimates and WPP population
+weights with `tools/build_baseline_nutrients_from_gbd.py`; it has no GLADE
+dependency. The authenticated raw-download instructions are in
+`docs/data_sources.md`.
 
 ## Validation
 

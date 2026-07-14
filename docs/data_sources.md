@@ -12,10 +12,11 @@ reduced to the minimum needed to evaluate the health-impact formulas (see
 `src/mealhealth/data/DATA_PROVENANCE.md` for exact schemas).
 
 The **health and demographic** data (`relative_risks.csv`, `mortality.csv`,
-`population.csv`, `life_table.csv`) is fully reproducible from public source
-datasets; `tools/prepare_data.py` then processes them. It uses the **GBD 2023**
-vintage throughout: relative risks from the GBD 2023 Burden-of-Proof tool and
-mortality from the GBD 2023 Results tool. The **baseline diet**
+`population.csv`, `life_table.csv`) and `baseline_nutrients.csv` are
+reproducible from documented source datasets. `tools/prepare_data.py` processes
+the health/demographic inputs, while
+`tools/build_baseline_nutrients_from_gbd.py` builds the nutrient baseline. They
+use the **GBD 2023** vintage throughout. The **baseline diet**
 (`baseline_intake.csv`, `baseline_calories.csv`) is a separate derived dataset —
 see [Baseline diet](#baseline-diet) below.
 
@@ -29,6 +30,7 @@ see [Baseline diet](#baseline-diet) below.
 | `life_table.csv`        | UN World Population Prospects (abridged life tables) | CC BY 3.0 IGO |
 | `baseline_intake.csv`   | Baseline diet dataset (see below) | GDD non-commercial |
 | `baseline_calories.csv` | Baseline diet dataset (see below) | GDD non-commercial |
+| `baseline_nutrients.csv` | IHME GBD 2023 Dietary Risk Exposure Estimates + UN WPP population weights | IHME non-commercial / CC BY 3.0 IGO |
 
 ## Obtaining the raw data
 
@@ -61,7 +63,45 @@ pollution, alcohol, smoking, and temperature [XLSX]"* from
 account) and save it, unrenamed, as
 `data/raw/IHME_GBD_2019_RELATIVE_RISKS_Y2020M10D15.XLSX`.
 
-### 2. IHME GBD 2023 cause-specific death rates (manual)
+### 2. IHME GBD 2023 dietary-risk exposures (manual)
+
+The seafood EPA+DHA baseline comes from the *GBD 2023 Dietary Risk Exposure
+Estimates*. These authenticated raw files are used only to regenerate the small
+adapted output; they are not redistributed.
+
+1. Create or sign in to a free IHME account and open the
+   [GBD 2023 Dietary Risk Exposure Estimates record](https://ghdx.healthdata.org/record/ihme-data/gbd-2023-dietary-risk-exposure-estimates).
+2. Accept the IHME Free-of-Charge Non-commercial User Agreement and download
+   both authenticated archives:
+   - [`IHME_GBD_2023_RISK_EXPOSURE_DIET_1.zip`](https://ghdx.healthdata.org/sites/default/files/record-attached-files/IHME_GBD_2023_RISK_EXPOSURE_DIET_1.zip)
+   - [`IHME_GBD_2023_RISK_EXPOSURE_DIET_2.zip`](https://ghdx.healthdata.org/sites/default/files/record-attached-files/IHME_GBD_2023_RISK_EXPOSURE_DIET_2.zip)
+   The direct links redirect to IHME login unless the browser session is
+   authenticated; the builder does not attempt to download them.
+3. Extract them under `data/raw/` as
+   `IHME_GBD_2023_RISK_EXPOSURE_DIET_1/` and
+   `IHME_GBD_2023_RISK_EXPOSURE_DIET_2/`.
+4. This release pins these exact files and SHA-256 digests:
+   - `IHME_GBD_2023_RISK_EXPOSURE_DIET_1/IHME_GBD_2023_RISK_EXPOSURE_DIET_HIGH_IN_SODIUM_Y2025M10D10.CSV`
+     — `0ea88321aba71f3c4cba0ca02472928ff06c78600e3a0a182bae4588217d23fd`
+   - `IHME_GBD_2023_RISK_EXPOSURE_DIET_2/IHME_GBD_2023_RISK_EXPOSURE_DIET_LOW_IN_SEAFOOD_OMEGA_3_FATTY_ACIDS_Y2025M10D10.CSV`
+     — `4e80f1047b13251d674da636d6cce35cb56b64878e79774c59f927d569d9b28f`
+
+Run `python tools/build_baseline_nutrients_from_gbd.py`. It selects 2020 and
+the 15 adult age groups, identifies national GBD locations through the
+cause-specific mortality input, and weights every age-sex exposure cell with
+WPP 2020 male/female population. WPP's 95–99 and 100+ groups are folded into
+GBD's 95+ group. The output retains mean exposure in g/day; uncertainty bounds
+are validated but not aggregated because exposure uncertainty is not propagated
+by the model. All 175 package countries are direct except French Guiana, which
+uses the documented `GUF → FRA` proxy. The staged sodium file is checksum-
+validated but remains inactive pending a dietary-intake-to-urinary-excretion
+model.
+
+Source citation: *Global Burden of Disease Collaborative Network. Global Burden
+of Disease Study 2023 (GBD 2023) Dietary Risk Exposure Estimates. Institute for
+Health Metrics and Evaluation (IHME), 2025.*
+
+### 3. IHME GBD 2023 cause-specific death rates (manual)
 
 Go to the GBD Results Tool <https://vizhub.healthdata.org/gbd-results/> and sign
 in. Reproduce this query (a permalink configured for 2020 is
@@ -79,7 +119,7 @@ in. Reproduce this query (a permalink configured for 2020 is
 
 Export as CSV and save as `data/raw/IHME-GBD_2023-death-rates-2020.csv`.
 
-### 3. UN World Population Prospects (automatic)
+### 4. UN World Population Prospects (automatic)
 
 `tools/prepare_data.py` downloads these into `data/raw/` if absent (WPP2024,
 medium variant):
@@ -119,6 +159,10 @@ research product* rather than a public raw download.
 > that tool will be retired. Until then the committed CSVs are the canonical
 > artifacts and do not need regenerating.
 
+`baseline_nutrients.csv` is separate from that temporary baseline-diet handoff.
+It is directly reproducible from the official GBD/WPP inputs above and has no
+source-code or processing dependency on GLADE.
+
 ## Licensing summary (important)
 
 * **Source code:** GPL-3.0-or-later.
@@ -141,7 +185,8 @@ licences and regenerate the data themselves.
    adapted derivatives. Whether these specific derivatives fall within "adapted
    use" rather than "redistribution" under the IHME/GDD agreements is a judgment
    call; a conservative downstream user who needs certainty should regenerate
-   the data from their own licensed copies using `tools/prepare_data.py`.
+   the data from their own licensed copies using `tools/prepare_data.py` and
+   `tools/build_baseline_nutrients_from_gbd.py`.
 2. **GPL + non-commercial data is an intentional but unusual combination.** The
    GPL cannot be applied to the data files (it would imply freedoms the upstream
    terms forbid); hence the separate `LicenseRef` on the data. Redistributors
@@ -157,6 +202,8 @@ When publishing results, cite:
   Burden of Proof, IHME — https://vizhub.healthdata.org/gbd-results/ and
   https://vizhub.healthdata.org/burden-of-proof/ (relative-risk age structure
   derived from GBD 2019 Relative Risks)
+* Global Burden of Disease Collaborative Network, *GBD 2023 Dietary Risk
+  Exposure Estimates*, IHME, 2025.
 * Global Dietary Database, Tufts University —
   https://www.globaldietarydatabase.org/
 * United Nations, World Population Prospects —

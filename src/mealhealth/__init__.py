@@ -4,7 +4,8 @@
 
 """mealhealth — a healthiness metric for a meal.
 
-Given a meal in food-group terms plus its calorie content, estimate the change
+Given a meal in food-group terms, optional nutrient content, and calories,
+estimate the change
 in years of life lost (or gained) if an average person in a chosen country ate
 this meal every day, relative to that country's baseline diet. Built on Global
 Burden of Disease relative-risk dose-response curves.
@@ -32,9 +33,17 @@ from .api import (
     assess_meal,
     food_groups,
     list_countries,
+    nutrient_factors,
     per_meal_marginal,
 )
-from .foodgroups import CAUSES, FOOD_GROUPS, FoodGroup
+from .foodgroups import (
+    CAUSES,
+    FOOD_GROUPS,
+    MODEL_RISK_FACTORS,
+    NUTRIENT_FACTORS,
+    FoodGroup,
+    NutrientFactor,
+)
 
 __version__ = "0.1.0"
 
@@ -43,10 +52,14 @@ __all__ = [
     "per_meal_marginal",
     "list_countries",
     "food_groups",
+    "nutrient_factors",
     "MealAssessment",
     "FoodGroup",
+    "NutrientFactor",
     "FOOD_GROUPS",
     "RISK_FACTORS",
+    "NUTRIENT_FACTORS",
+    "MODEL_RISK_FACTORS",
     "CAUSES",
     "CAUSE_LABELS",
     "__version__",

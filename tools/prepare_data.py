@@ -105,6 +105,7 @@ GBD_REI_ID: dict[str, int] = {
     "nuts_seeds": 114,
     "red_meat": 116,
     "processed_meat": 117,
+    "omega3": 121,
 }
 GBD_CAUSE_ID: dict[str, int] = {
     "CHD": 493,  # Ischemic heart disease
@@ -124,6 +125,7 @@ RISK_CAUSE_MAP: dict[str, list[str]] = {
     "nuts_seeds": ["CHD"],
     "red_meat": ["CHD", "Stroke", "T2DM", "CRC"],
     "processed_meat": ["CHD", "T2DM", "CRC"],
+    "omega3": ["CHD"],
 }
 
 # Risks whose BoP dose-response is replaced by a log-linear literature curve.
@@ -306,9 +308,23 @@ def _fetch_bop_curves() -> pd.DataFrame:
 
 
 def _load_bop_curves() -> pd.DataFrame:
-    """Return the cached BoP curves, fetching them once if the cache is absent."""
+    """Return complete cached BoP curves, refreshing a stale/incomplete cache."""
+    expected_pairs = {
+        (risk, cause) for risk, causes in RISK_CAUSE_MAP.items() for cause in causes
+    }
     if BOP_CURVES_CSV.exists():
-        return pd.read_csv(BOP_CURVES_CSV)
+        cached = pd.read_csv(BOP_CURVES_CSV)
+        cached_pairs = set(
+            cached[["risk_factor", "cause"]].itertuples(index=False, name=None)
+        )
+        if cached_pairs == expected_pairs:
+            return cached
+        missing = sorted(expected_pairs - cached_pairs)
+        extra = sorted(cached_pairs - expected_pairs)
+        print(
+            "Refreshing incomplete/stale Burden-of-Proof cache "
+            f"(missing={missing}, extra={extra}) ..."
+        )
     print("Fetching GBD 2023 Burden-of-Proof relative-risk curves ...")
     try:
         df = _fetch_bop_curves()

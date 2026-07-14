@@ -10,13 +10,13 @@ import pandas as pd
 import pytest
 
 from mealhealth import data
-from mealhealth.foodgroups import ADULT_AGES, CAUSES, RISK_FACTORS
+from mealhealth.foodgroups import ADULT_AGES, CAUSES, MODEL_RISK_FACTORS
 from mealhealth.model import RelativeRiskCurves
 
 
 def test_bundled_data_present():
     rr = data.relative_risks()
-    assert set(rr["risk_factor"]) == set(RISK_FACTORS)
+    assert set(rr["risk_factor"]) == set(MODEL_RISK_FACTORS)
     assert set(rr["cause"]) <= set(CAUSES)
     # every (risk, cause, age) has all 15 adult ages
     counts = rr.groupby(["risk_factor", "cause"])["age"].nunique()
@@ -33,6 +33,7 @@ def test_cause_maps_match_gbd():
     assert set(curves.causes_for("red_meat")) == {"CHD", "Stroke", "T2DM", "CRC"}
     # GBD processed meat: no stroke
     assert set(curves.causes_for("processed_meat")) == {"CHD", "T2DM", "CRC"}
+    assert set(curves.causes_for("omega3")) == {"CHD"}
 
 
 def test_log_linear_interpolation_midpoint():
@@ -69,11 +70,26 @@ def test_clamps_outside_data_range():
 
 def test_protective_groups_have_decreasing_rr():
     rr = data.relative_risks()
-    for risk in ["fruits", "vegetables", "whole_grains", "legumes", "nuts_seeds"]:
+    for risk in [
+        "fruits",
+        "vegetables",
+        "whole_grains",
+        "legumes",
+        "nuts_seeds",
+        "omega3",
+    ]:
         sub = rr[(rr["risk_factor"] == risk) & (rr["age"] == "25-29")]
         for _, g in sub.groupby("cause"):
             g = g.sort_values("exposure_g_per_day")
             assert g["rr_mean"].iloc[-1] <= g["rr_mean"].iloc[0] + 1e-9
+
+
+def test_omega3_tmrel_clip_and_age_coverage():
+    rr = data.relative_risks()
+    omega3 = rr[rr["risk_factor"] == "omega3"]
+    assert set(omega3["cause"]) == {"CHD"}
+    assert set(omega3["age"]) == set(ADULT_AGES)
+    assert omega3.groupby("age")["exposure_g_per_day"].max().eq(0.565).all()
 
 
 def test_harmful_groups_have_increasing_rr():

@@ -8,9 +8,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 A meal is described to `mealhealth` as grams of each **risk-factor food group**
 it contains, plus the meal's total energy. Only the groups below enter the
-health calculation directly. Everything else in the meal (poultry, fish, eggs,
-oils, refined/white grains, potatoes, sugar, dairy, …) affects the result only
-through the meal's calorie total, by displacing the baseline diet.
+health calculation directly. Everything else in the meal (poultry, eggs, oils,
+refined/white grains, potatoes, sugar, dairy, …) affects the result only through
+the meal's calorie total, by displacing the baseline diet. Fish and shellfish
+also contribute when their EPA+DHA content is supplied through the optional
+nutrient input below.
 
 ## The seven risk-factor groups
 
@@ -20,11 +22,27 @@ through the meal's calorie total, by displacing the baseline diet.
 | `vegetables`     | no       | CHD, Stroke       | fresh weight (as eaten) |
 | `whole_grains`   | no       | CHD, Stroke, T2DM, CRC | **dry (uncooked) weight** |
 | `legumes`        | no       | CHD               | **dry (uncooked) weight** |
-| `nuts_seeds`     | no       | CHD, T2DM         | dry weight (as eaten) |
+| `nuts_seeds`     | no       | CHD               | dry weight (as eaten) |
 | `red_meat`       | yes      | CHD, Stroke, T2DM, CRC | fresh raw (retail) weight |
 | `processed_meat` | yes      | CHD, T2DM, CRC    | fresh raw (retail) weight |
 
-Definitions follow the GBD 2021 dietary risk-factor definitions.
+Definitions follow the GBD dietary risk-factor definitions.
+
+## Nutrient inputs
+
+Seafood omega-3 is not another food-group mass. Pass its nutrient content
+separately as `seafood_omega3_mg=` in **mg per meal**. It means the combined
+long-chain seafood fatty acids EPA + DHA and excludes plant omega-3 ALA. The
+model converts mg to its internal g/day exposure axis and applies the GBD
+seafood-omega-3 → CHD curve.
+
+The argument is optional because callers may not know a meal's nutrient
+composition. Omitted or `None` means “do not assess this factor”; `0.0` means
+“the meal contains no EPA+DHA.” The latter still scales down the country's
+nonzero baseline exposure and can therefore produce a CHD penalty. Oily-fish
+servings commonly contain hundreds to more than 1,000 mg EPA+DHA, while lean
+seafood can contain much less; use a nutrition database or product analysis for
+the actual meal rather than estimating from seafood mass alone.
 
 ## Mass basis — read this for correct numbers
 
