@@ -55,14 +55,33 @@ print("By cause:", result.delta_paf_total)            # per-cause % risk change
 
 ## Installation
 
+`mealhealth` installs straight from this Git repository (it is not on PyPI).
+With **uv**:
+
 ```bash
-pip install -e .          # or: uv pip install -e ".[dev]"
+uv add "mealhealth @ git+https://github.com/Sustainable-Solutions-Lab/mealhealth.git"
 ```
 
-Runtime dependencies are just `numpy` and `pandas`. Data needed for the
-calculation is bundled with the package.
+or add it to your project's `pyproject.toml`:
+
+```toml
+[project]
+dependencies = [
+    "mealhealth @ git+https://github.com/Sustainable-Solutions-Lab/mealhealth.git",
+]
+```
+
+`pixi add --pypi "mealhealth @ git+..."` and plain
+`pip install "git+https://github.com/..."` work too. Runtime dependencies are
+just `numpy` and `pandas`; the data is bundled with the package. See the
+[installation guide](https://sustainable-solutions-lab.github.io/mealhealth/installation.html)
+for pinning to a tag, SSH URLs, and a local development checkout.
 
 ## Documentation
+
+Full documentation is published at
+**<https://sustainable-solutions-lab.github.io/mealhealth/>**. The sources live
+in [`docs/`](docs/):
 
 * [`docs/methodology.md`](docs/methodology.md) — the formulas, age modes, and
   substitution model.
@@ -72,13 +91,16 @@ calculation is bundled with the package.
   **licensing** (read this before any redistribution or commercial use).
 * [`docs/usage.md`](docs/usage.md) — API reference and worked examples.
 
+Build the site locally with `uv run --group docs sphinx-build -b html docs docs/_build/html`.
+
 ## Licensing (important)
 
 The **source code** is licensed **GPL-3.0-or-later**. However, the **bundled
-data** is derived from GBD, the Global Dietary Database (GDD-IA) and UN World
-Population Prospects, which carry **non-commercial** terms. The distributed
-package *as a whole* is therefore for **non-commercial research, teaching and
-private study only** — the GPL on the code does *not* grant unrestricted reuse
-of the bundled data. See [`docs/data_sources.md`](docs/data_sources.md).
+data** carries a **non-commercial** restriction, which comes from IHME GBD; the
+other sources (UN World Population Prospects, the GDD-IA dietary data) are more
+permissive. The distributed package *as a whole* is therefore for
+**non-commercial research, teaching and private study, with attribution** — the
+GPL on the code does *not* grant unrestricted reuse of the bundled data. See
+[`docs/data_sources.md`](docs/data_sources.md).
 
 Repository: `git@github.com:Sustainable-Solutions-Lab/mealhealth.git`

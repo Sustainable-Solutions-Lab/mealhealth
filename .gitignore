@@ -14,6 +14,9 @@ dist/
 .coverage
 htmlcov/
 
+# Built documentation site.
+docs/_build/
+
 # Raw source datasets for data prep (developer-downloaded; not redistributable).
 # See docs/data_sources.md for how to obtain them.
 data/raw/

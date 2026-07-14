@@ -13,7 +13,7 @@
 Unlike the health/demographic data (which ``tools/prepare_data.py`` regenerates
 from public raw sources), the baseline diet is a *derived research product*. It
 is currently produced from the sibling **GLADE** project (the Global Land,
-Agriculture, Diet and Emissions model, formerly ``food-opt``) — its processed
+Agriculture, Diet and Emissions model) — its processed
 dietary intake (GDD-IA / NHANES, with the unprocessed/processed red-meat split
 from the GDD-IA processed fraction). That dataset is openly available during
 development but is **not** part of ``mealhealth``'s self-contained pipeline.
@@ -42,12 +42,12 @@ import pandas as pd
 # Configuration
 # --------------------------------------------------------------------------
 
-# Path to a GLADE checkout (the temporary baseline-diet source). The project is
-# being renamed food-opt -> glade, so the directory may carry either name; pick
-# whichever exists. Future: a Zenodo DOI / URL once the baseline diet is published.
+# Path to a GLADE checkout (the temporary baseline-diet source). The directory
+# may be capitalised or not; pick whichever exists. Future: a Zenodo DOI / URL
+# once the baseline diet is published.
 _GLADE_CANDIDATES = (
+    Path("/home/koen/Dokument/Research/Code/GLADE"),
     Path("/home/koen/Dokument/Research/Code/glade"),
-    Path("/home/koen/Dokument/Research/Code/food-opt"),  # pre-rename name
 )
 GLADE = next((p for p in _GLADE_CANDIDATES if p.exists()), _GLADE_CANDIDATES[0])
 RUN = "central"  # canonical GLADE processing run

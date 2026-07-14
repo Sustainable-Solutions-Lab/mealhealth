@@ -1,0 +1,14 @@
+/*
+SPDX-FileCopyrightText: 2026 Koen van Greevenbroek
+
+SPDX-License-Identifier: CC-BY-4.0
+*/
+
+/* Let the wide reference tables (food groups, data sources) scroll on narrow
+   screens rather than overflowing the content column. */
+.rst-content table.docutils,
+article table {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+}

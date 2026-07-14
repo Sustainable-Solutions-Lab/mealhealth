@@ -20,11 +20,24 @@ enters indirectly: each bundled dose–response curve is clipped at its GBD 2023
 TMREL during data preparation, so intake past the plateau yields no further
 benefit. See [Data sources](data_sources.md).)
 
+```{figure} _static/method_overview.svg
+:alt: A meal is substituted into the country baseline diet at equal calories; the resulting change in each food group's intake is read off its risk curve and turned into a change in years of life.
+:width: 100%
+
+The three steps in outline. The meal displaces part of the day's baseline diet
+at equal calories (step 1); the resulting change in intake moves each food group
+along its own risk curve, giving the change in risk relative to baseline
+(step 2); that change, weighted by the local disease burden, becomes the net
+effect on years of life (step 3). In the third panel each bar is a disease's
+burden and the hatched tail is how far this meal shifts it. Proportions are
+illustrative; the terms below make each step precise.
+```
+
 ## 1. The substituted diet
 
-The user supplies the meal's total energy `C_meal` (kcal), the mass of each
+You supply the meal's total energy `C_meal` (kcal), the mass of each
 risk-factor food group it contains, and any optional nutrient-factor amount.
-The baseline diet is scaled down to keep total calories constant and the meal
+The baseline diet is scaled down to hold total calories constant, and the meal
 is added on top:
 
 ```

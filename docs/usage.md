@@ -6,11 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Usage
 
-## Install
-
-```bash
-uv pip install -e ".[dev]"   # or: pip install -e .
-```
+See [Installation](installation.md) for how to add `mealhealth` to a project or
+set up a local development checkout.
 
 ## The one function you need
 
@@ -27,8 +24,8 @@ print(result.summary())
 
 ### `assess_meal(meal, meal_kcal, country, *, mode, age, include_processed_meat, relative_only, seafood_omega3_mg)`
 
-* `meal` — dict of risk-factor group → grams (in each group's required basis,
-  see `docs/food_groups.md`). Keys must be in `mealhealth.RISK_FACTORS`.
+* `meal` — dict of risk-factor group → grams, each in the group's required basis
+  (see [Food groups](food_groups.md)). Keys must be in `mealhealth.RISK_FACTORS`.
 * `meal_kcal` — total energy of the whole meal (kcal), including non-risk foods.
 * `country` — ISO3 code; see `mealhealth.list_countries()` (175 countries).
 * `mode` — `"population"` (default, annual population YLL), `"median"`
@@ -115,7 +112,7 @@ Download the two IHME GBD files into `data/raw/` (the UN WPP files download
 automatically), then run:
 
 ```bash
-python tools/prepare_data.py
+uv run python tools/prepare_data.py
 ```
 
 See [`data_sources.md`](data_sources.md) for exactly which files to download and
