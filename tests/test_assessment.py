@@ -253,6 +253,6 @@ def test_gbd_reference_life_table_values():
     lt = data.gbd_reference_life_table()
     assert len(lt) == 21
     ex = dict(lt[["age", "ex"]].itertuples(index=False, name=None))
-    assert ex["<1"] == pytest.approx(88.8718951)
-    assert ex["70-74"] == pytest.approx(21.28820012)
-    assert ex["95+"] == pytest.approx(5.922359078)
+    assert ex["<1"] == pytest.approx(89.95803974533831)
+    assert ex["70-74"] == pytest.approx(22.160212679066483)
+    assert ex["95+"] == pytest.approx(8.494693425849968)

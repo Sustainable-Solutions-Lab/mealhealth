@@ -84,7 +84,7 @@ Every assessment reports two versions:
 * `delta_yll_total` uses remaining life expectancy from the country's UN WPP
   period life table. It estimates years gained or lost under current local
   mortality conditions.
-* `delta_yll_standard_total` uses the common GBD 2019 theoretical minimum-risk
+* `delta_yll_standard_total` uses the common GBD 2023 theoretical minimum-risk
   reference life table. It measures potential years gained or lost relative to
   GBD's aspirational longevity standard and is the appropriate output for
   comparison with published GBD YLL estimates.

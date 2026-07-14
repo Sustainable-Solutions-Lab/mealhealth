@@ -65,9 +65,13 @@ the 15 adult age groups and both sexes with WPP 2020 weights.
 with World fallback where unavailable.
 
 ## `gbd_reference_life_table.csv`
-`age, ex` — GBD 2019 theoretical minimum-risk reference life table (TMRLT),
-published by IHME as `IHME_GBD_2019_TMRLT_Y2021M01D05.CSV` (DOI
-10.6069/1D4Y-YQ37). It supplies the common aspirational remaining life
-expectancy used for the additional standard-YLL output.
+`age, ex` — adapted from the GBD 2023 theoretical minimum-risk life table
+(TMRLT), published by IHME as
+`IHME_GBD_2023_DEMOGRAPHICS_1950_2023_TMRLT_Y2025M06D09.CSV` in the GBD 2023
+Demographics 1950–2023 record. The source gives exact-age values through 110;
+this runtime derivative retains the 21 age boundaries used by the model through
+95. The age-95 value represents the model's final `95+` band. It supplies the
+common aspirational remaining life expectancy used for the additional
+standard-YLL output.
 
 Countries with complete data across all files: 175.

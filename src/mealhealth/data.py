@@ -113,7 +113,7 @@ def life_table() -> pd.DataFrame:
 
 @lru_cache(maxsize=1)
 def gbd_reference_life_table() -> pd.DataFrame:
-    """age, ex (GBD 2019 theoretical-minimum-risk life expectancy)."""
+    """age, ex (GBD 2023 theoretical-minimum-risk life expectancy)."""
     return _read("gbd_reference_life_table.csv")
 
 
