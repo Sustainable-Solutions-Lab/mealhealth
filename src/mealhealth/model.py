@@ -34,6 +34,7 @@ from .foodgroups import (
     AGE_SPAN,
     AGE_START,
     CAUSES,
+    NUTRIENT_FACTORS,
     RISK_FACTORS,
     age_to_bucket,
 )
@@ -95,6 +96,19 @@ class CountryBurden:
                 bi["country"] == country, ["risk_factor", "intake_g_per_day"]
             ].itertuples(index=False, name=None)
         )
+        bn = data.baseline_nutrients()
+        nutrient_baseline = dict(
+            bn.loc[
+                bn["country"] == country, ["nutrient", "intake_g_per_day"]
+            ].itertuples(index=False, name=None)
+        )
+        missing_nutrients = set(NUTRIENT_FACTORS) - set(nutrient_baseline)
+        if missing_nutrients:
+            raise ValueError(
+                f"Bundled nutrient baseline missing {country}: "
+                f"{sorted(missing_nutrients)}"
+            )
+        self.baseline.update(nutrient_baseline)
         cal = data.baseline_calories()
         self.baseline_kcal = float(
             cal.loc[cal["country"] == country, "kcal_per_day"].iloc[0]
@@ -195,7 +209,7 @@ class CountryBurden:
 
 @dataclass
 class SubstitutedDiet:
-    """Baseline scaled by ``f`` with the meal added, in risk-group exposures."""
+    """Baseline scaled by ``f`` with the meal added, in factor exposures."""
 
     f: float
     exposure: dict[str, float]
@@ -326,6 +340,7 @@ def assess(
     age: float | None = None,
     include_processed_meat: bool = True,
     relative_only: bool = False,
+    seafood_omega3_mg: float | None = None,
     curves: RelativeRiskCurves | None = None,
 ) -> MealAssessment:
     """Evaluate the health impact of eating ``meal`` daily in ``country``.
@@ -337,7 +352,7 @@ def assess(
     if mode == "age" and age is None:
         raise ValueError("mode='age' requires the age argument (years)")
 
-    risk_factors = tuple(
+    food_risk_factors = tuple(
         r for r in RISK_FACTORS if include_processed_meat or r != "processed_meat"
     )
     unknown = set(meal) - set(RISK_FACTORS)
@@ -348,10 +363,26 @@ def assess(
             "these groups affect the result only via meal_kcal."
         )
 
+    nutrient_amounts: dict[str, float] = {}
+    if seafood_omega3_mg is not None:
+        try:
+            amount = float(seafood_omega3_mg)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "seafood_omega3_mg must be a finite non-negative number"
+            ) from exc
+        if not math.isfinite(amount) or amount < 0:
+            raise ValueError("seafood_omega3_mg must be a finite non-negative number")
+        factor = NUTRIENT_FACTORS["omega3"]
+        nutrient_amounts["omega3"] = amount * factor.api_to_internal
+
+    risk_factors = food_risk_factors + tuple(nutrient_amounts)
+    meal_exposure = {**meal, **nutrient_amounts}
+
     if curves is None:
         curves = RelativeRiskCurves()
     burden = CountryBurden(country)
-    diet = build_substituted_diet(burden, meal, meal_kcal, risk_factors)
+    diet = build_substituted_diet(burden, meal_exposure, meal_kcal, risk_factors)
 
     if mode == "population":
         causes = _assess_population(curves, burden, diet, risk_factors, relative_only)

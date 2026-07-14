@@ -7,7 +7,14 @@
 from __future__ import annotations
 
 from . import data
-from .foodgroups import CAUSE_LABELS, FOOD_GROUPS, RISK_FACTORS, FoodGroup
+from .foodgroups import (
+    CAUSE_LABELS,
+    FOOD_GROUPS,
+    NUTRIENT_FACTORS,
+    RISK_FACTORS,
+    FoodGroup,
+    NutrientFactor,
+)
 from .model import MealAssessment, assess
 
 # A nominal number of meals over an adult lifetime, used to express the
@@ -26,6 +33,7 @@ def assess_meal(
     age: float | None = None,
     include_processed_meat: bool = True,
     relative_only: bool = False,
+    seafood_omega3_mg: float | None = None,
 ) -> MealAssessment:
     """Assess the health impact of eating ``meal`` every day in ``country``.
 
@@ -36,7 +44,8 @@ def assess_meal(
         group's required input basis (see :func:`food_groups`). Valid keys are
         the entries of :data:`mealhealth.RISK_FACTORS`. Foods outside these
         groups (poultry, fish, eggs, oils, refined grains, ...) are not listed
-        here; they enter only through ``meal_kcal``.
+        here; their food mass enters only through ``meal_kcal``. Seafood EPA +
+        DHA can be supplied separately with ``seafood_omega3_mg``.
     meal_kcal:
         Total energy of the whole meal in kcal (including non-risk foods). Used
         to displace the baseline diet by a factor
@@ -57,12 +66,17 @@ def assess_meal(
         If True, skip the absolute-YLL anchor and report only the relative
         metric (per-cause PAF: the % change in diet-attributable risk). This is
         the degraded fallback that needs only RR curves + baseline exposure.
+    seafood_omega3_mg:
+        Optional seafood-derived EPA + DHA in the meal, in milligrams. This is
+        not total omega-3 and excludes plant ALA. ``None`` (the default) omits
+        the factor from the assessment; ``0.0`` explicitly models a meal with
+        no seafood omega-3 and therefore still displaces the country baseline.
 
     Returns
     -------
     MealAssessment
         Has ``delta_yll_total`` (years gained if positive, lost if negative),
-        a per-cause ``causes`` breakdown, ``risk_attribution`` per food group,
+        a per-cause ``causes`` breakdown, ``risk_attribution`` per active factor,
         the substitution factor ``f``, and a ``summary()`` method.
     """
     return assess(
@@ -73,6 +87,7 @@ def assess_meal(
         age=age,
         include_processed_meat=include_processed_meat,
         relative_only=relative_only,
+        seafood_omega3_mg=seafood_omega3_mg,
     )
 
 
@@ -102,11 +117,17 @@ def food_groups() -> dict[str, FoodGroup]:
     return dict(FOOD_GROUPS)
 
 
+def nutrient_factors() -> dict[str, NutrientFactor]:
+    """Optional nutrient factors, including API units and descriptions."""
+    return dict(NUTRIENT_FACTORS)
+
+
 __all__ = [
     "assess_meal",
     "per_meal_marginal",
     "list_countries",
     "food_groups",
+    "nutrient_factors",
     "MealAssessment",
     "RISK_FACTORS",
     "CAUSE_LABELS",

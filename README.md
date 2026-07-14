@@ -13,9 +13,9 @@ built directly on **Global Burden of Disease (GBD)** relative-risk
 dose–response curves for diet and chronic disease.
 
 The meal is described in **food-group terms** (grams of vegetables, whole
-grains, red meat, …) plus its total calorie content. The meal is substituted
-into the baseline diet at **constant total calories**: the baseline is scaled
-down to make caloric room for the meal, the meal's food-group masses are added,
+grains, red meat, …), optional nutrient content, and total calories. The meal is
+substituted into the baseline diet at **constant total calories**: the baseline
+is scaled down to make caloric room for the meal, the meal exposures are added,
 and the change in diet-attributable years of life lost (YLL) is computed.
 
 ```python
@@ -25,6 +25,7 @@ result = mh.assess_meal(
     meal={"vegetables": 250, "whole_grains": 100, "legumes": 80},
     meal_kcal=550,
     country="USA",
+    seafood_omega3_mg=250,
 )
 print(result.summary())
 print("Total ΔYLL:", result.delta_yll_total)        # > 0 ⇒ years gained
@@ -36,6 +37,8 @@ print("By cause:", result.delta_paf_total)            # per-cause % risk change
 * **Food groups (GBD dietary risk factors):** fruits, vegetables, whole grains,
   legumes, nuts & seeds, unprocessed red meat, and **processed meat as a
   separate group**.
+* **Optional nutrient factor:** seafood omega-3 (EPA + DHA, excluding ALA),
+  supplied explicitly in mg per meal and linked to CHD.
 * **Diseases:** coronary heart disease (CHD), ischemic stroke, type-2 diabetes
   (T2DM), colorectal cancer (CRC), each acting on its GBD-mapped causes
   (processed meat: CHD, T2DM, CRC).

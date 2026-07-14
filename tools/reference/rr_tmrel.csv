@@ -6,3 +6,4 @@ nuts_seeds,protective,19,24,GBD 2023 appendix Table 18
 legumes,protective,100,110,GBD 2023 appendix Table 18
 red_meat,harmful,0,0,monotonic-harmful literature override (appendix J-shaped 0-200 g/day not used)
 processed_meat,harmful,0,0,GBD 2023: no safe level (TMREL at zero intake)
+omega3,protective,0.470,0.660,GBD 2023 appendix 2 section 4

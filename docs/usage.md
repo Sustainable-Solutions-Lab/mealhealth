@@ -25,7 +25,7 @@ result = mh.assess_meal(
 print(result.summary())
 ```
 
-### `assess_meal(meal, meal_kcal, country, *, mode, age, include_processed_meat, relative_only)`
+### `assess_meal(meal, meal_kcal, country, *, mode, age, include_processed_meat, relative_only, seafood_omega3_mg)`
 
 * `meal` — dict of risk-factor group → grams (in each group's required basis,
   see `docs/food_groups.md`). Keys must be in `mealhealth.RISK_FACTORS`.
@@ -37,6 +37,10 @@ print(result.summary())
 * `age` — required for `mode="age"`: the person's current age in years.
 * `include_processed_meat` — model processed meat separately (default `True`).
 * `relative_only` — report only per-cause PAF, skip the YLL anchor.
+* `seafood_omega3_mg` — optional seafood EPA + DHA in mg per meal (not total
+  omega-3; excludes ALA). Omit/`None` to exclude this factor; pass `0.0` to state
+  that the meal contains none while still modelling displacement of baseline
+  seafood omega-3.
 
 ### The result object
 
@@ -44,12 +48,16 @@ print(result.summary())
 result.delta_yll_total      # net ΔYLL (years gained if > 0, lost if < 0)
 result.causes               # dict cause -> CauseResult(paf, delta_yll, rr_*)
 result.delta_paf_total      # dict cause -> PAF (relative metric)
-result.risk_attribution     # dict food group -> ΔYLL attributed (sums to total)
+result.risk_attribution     # dict active risk factor -> ΔYLL (sums to total)
 result.f                    # baseline scaling factor used
 result.exposure             # substituted-diet exposures per group
 result.warnings             # e.g. meal exceeds baseline calories
 result.summary()            # human-readable report
 ```
+
+When supplied, `omega3` appears as an additional key in `exposure`,
+`baseline_exposure`, and `risk_attribution`; those exposure dictionaries use the
+engine's internal g/day unit.
 
 ## Examples
 
@@ -71,11 +79,24 @@ r = mh.assess_meal({"vegetables": 300}, 200, "FRA", relative_only=True)
 print(r.delta_paf_total)   # {'CHD': +0.07, 'Stroke': +0.04, ...}
 ```
 
+### Seafood omega-3
+
+```python
+salmon = mh.assess_meal(
+    meal={"vegetables": 150},
+    meal_kcal=600,
+    country="USA",
+    seafood_omega3_mg=1200,  # EPA + DHA from the whole meal
+)
+print(salmon.causes["CHD"].paf)
+```
+
 ### Inspecting food groups and countries
 
 ```python
 mh.list_countries()                  # ['AFG', 'AGO', ..., 'ZWE']
 mh.food_groups()["whole_grains"].input_basis   # 'dry weight (uncooked)'
+mh.nutrient_factors()["omega3"].api_unit       # 'mg'
 ```
 
 ## Reproducing the bundled data

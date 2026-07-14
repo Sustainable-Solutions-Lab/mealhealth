@@ -14,7 +14,10 @@ from __future__ import annotations
 from functools import lru_cache
 from importlib import resources
 
+import numpy as np
 import pandas as pd
+
+from .foodgroups import NUTRIENT_FACTORS
 
 
 def _read(name: str) -> pd.DataFrame:
@@ -42,6 +45,52 @@ def baseline_intake() -> pd.DataFrame:
 def baseline_calories() -> pd.DataFrame:
     """country, kcal_per_day (total baseline daily energy)."""
     return _read("baseline_calories.csv")
+
+
+@lru_cache(maxsize=1)
+def baseline_nutrients() -> pd.DataFrame:
+    """country, nutrient, intake_g_per_day, source_country, source_year.
+
+    Every supported country must have exactly one finite, non-negative row for
+    every implemented nutrient. This strict load-time check prevents a missing
+    baseline from silently becoming a real zero exposure.
+    """
+    df = _read("baseline_nutrients.csv")
+    expected_columns = {
+        "country",
+        "nutrient",
+        "intake_g_per_day",
+        "source_country",
+        "source_year",
+    }
+    if set(df.columns) != expected_columns:
+        raise ValueError(
+            "Invalid bundled baseline_nutrients.csv schema: expected "
+            f"{sorted(expected_columns)}, got {sorted(df.columns)}"
+        )
+    countries = set(baseline_intake()["country"])
+    expected = {(c, n) for c in countries for n in NUTRIENT_FACTORS}
+    pairs = list(df[["country", "nutrient"]].itertuples(index=False, name=None))
+    actual = set(pairs)
+    if len(pairs) != len(actual) or actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        raise ValueError(
+            "Invalid bundled nutrient baseline coverage: "
+            f"missing={missing[:10]}, extra={extra[:10]}, duplicates="
+            f"{len(pairs) - len(actual)}"
+        )
+    values = pd.to_numeric(df["intake_g_per_day"], errors="coerce")
+    if not np.isfinite(values.to_numpy(dtype=float)).all() or not (values >= 0).all():
+        raise ValueError("Bundled nutrient baselines must be finite and non-negative")
+    if set(df["source_year"]) != {2020}:
+        raise ValueError("Bundled nutrient baselines must use source_year 2020")
+    expected_sources = df["country"].where(df["country"] != "GUF", "FRA")
+    if not df["source_country"].equals(expected_sources):
+        raise ValueError(
+            "Bundled nutrient baseline source_country must be direct except GUF->FRA"
+        )
+    return df
 
 
 @lru_cache(maxsize=1)

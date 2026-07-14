@@ -69,6 +69,7 @@ GBD_RISK_NAMES = {
     "Diet low in nuts and seeds": "nuts_seeds",
     "Diet high in red meat": "red_meat",
     "Diet high in processed meat": "processed_meat",
+    "Diet low in seafood omega-3 fatty acids": "omega3",
 }
 
 # IHME outcome name -> model cause (RR sheet uses "Diabetes mellitus type 2").
@@ -109,6 +110,7 @@ NEEDED = {
     "nuts_seeds": ["CHD"],
     "red_meat": ["CHD", "Stroke", "T2DM", "CRC"],
     "processed_meat": ["CHD", "T2DM", "CRC"],
+    "omega3": ["CHD"],
 }
 
 YOUNGEST_AGE = ADULT_AGE_LABELS[0]  # 25-29; numerically stable ratio denominator
