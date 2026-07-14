@@ -46,8 +46,8 @@ the 15 adult age groups and both sexes with WPP 2020 weights.
 - `nutrient=omega3` means seafood EPA + DHA in g/day.
 - All 175 countries have exactly one row. French Guiana uses the sole proxy,
   `source_country=FRA`; every other row uses its own country.
-- Built by `tools/build_baseline_nutrients_from_gbd.py` from the pinned GBD 2023
-  Dietary Risk Exposure Estimates file (SHA-256
+- Built by `tools/build_baseline_nutrients_from_gbd.py` from the pinned dietary
+  file in GBD 2023 Risk Exposure Estimates 1990–2023 (SHA-256
   `4e80f1047b13251d674da636d6cce35cb56b64878e79774c59f927d569d9b28f`)
   and UN WPP population data.
 

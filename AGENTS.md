@@ -82,10 +82,10 @@ formerly `food-opt`) until the dataset is published on Zenodo — the only place
 the project still references GLADE.
 
 The seafood EPA+DHA baseline (`baseline_nutrients.csv`) is independently built
-from the official GBD 2023 Dietary Risk Exposure Estimates and WPP population
-weights with `tools/build_baseline_nutrients_from_gbd.py`; it has no GLADE
-dependency. The authenticated raw-download instructions are in
-`docs/data_sources.md`.
+from the dietary files in the official GBD 2023 Risk Exposure Estimates
+1990–2023 and WPP population weights with
+`tools/build_baseline_nutrients_from_gbd.py`; it has no GLADE dependency. The
+authenticated raw-download instructions are in `docs/data_sources.md`.
 
 ## Validation
 

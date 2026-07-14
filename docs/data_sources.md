@@ -30,7 +30,7 @@ see [Baseline diet](#baseline-diet) below.
 | `life_table.csv`        | UN World Population Prospects (abridged life tables) | CC BY 3.0 IGO |
 | `baseline_intake.csv`   | Baseline diet dataset (see below) | GDD non-commercial |
 | `baseline_calories.csv` | Baseline diet dataset (see below) | GDD non-commercial |
-| `baseline_nutrients.csv` | IHME GBD 2023 Dietary Risk Exposure Estimates + UN WPP population weights | IHME non-commercial / CC BY 3.0 IGO |
+| `baseline_nutrients.csv` | Dietary files from IHME GBD 2023 Risk Exposure Estimates 1990–2023 + UN WPP population weights | IHME non-commercial / CC BY 3.0 IGO |
 
 ## Obtaining the raw data
 
@@ -63,14 +63,14 @@ pollution, alcohol, smoking, and temperature [XLSX]"* from
 account) and save it, unrenamed, as
 `data/raw/IHME_GBD_2019_RELATIVE_RISKS_Y2020M10D15.XLSX`.
 
-### 2. IHME GBD 2023 dietary-risk exposures (manual)
+### 2. IHME GBD 2023 risk exposure estimates (manual)
 
-The seafood EPA+DHA baseline comes from the *GBD 2023 Dietary Risk Exposure
-Estimates*. These authenticated raw files are used only to regenerate the small
-adapted output; they are not redistributed.
+The seafood EPA+DHA baseline comes from the dietary files in the *GBD 2023 Risk
+Exposure Estimates 1990–2023*. These authenticated raw files are used only to
+regenerate the small adapted output; they are not redistributed.
 
 1. Create or sign in to a free IHME account and open the
-   [GBD 2023 Dietary Risk Exposure Estimates record](https://ghdx.healthdata.org/record/ihme-data/gbd-2023-dietary-risk-exposure-estimates).
+   [GBD 2023 Risk Exposure Estimates 1990–2023 record](https://ghdx.healthdata.org/record/ihme-data/gbd-2023-risk-exposure-estimates-1990-2023).
 2. Accept the IHME Free-of-Charge Non-commercial User Agreement and download
    both authenticated archives:
    - [`IHME_GBD_2023_RISK_EXPOSURE_DIET_1.zip`](https://ghdx.healthdata.org/sites/default/files/record-attached-files/IHME_GBD_2023_RISK_EXPOSURE_DIET_1.zip)
@@ -98,8 +98,8 @@ validated but remains inactive pending a dietary-intake-to-urinary-excretion
 model.
 
 Source citation: *Global Burden of Disease Collaborative Network. Global Burden
-of Disease Study 2023 (GBD 2023) Dietary Risk Exposure Estimates. Institute for
-Health Metrics and Evaluation (IHME), 2025.*
+of Disease Study 2023 (GBD 2023) Risk Exposure Estimates 1990–2023. Institute
+for Health Metrics and Evaluation (IHME), 2025.*
 
 ### 3. IHME GBD 2023 cause-specific death rates (manual)
 
@@ -202,8 +202,8 @@ When publishing results, cite:
   Burden of Proof, IHME — https://vizhub.healthdata.org/gbd-results/ and
   https://vizhub.healthdata.org/burden-of-proof/ (relative-risk age structure
   derived from GBD 2019 Relative Risks)
-* Global Burden of Disease Collaborative Network, *GBD 2023 Dietary Risk
-  Exposure Estimates*, IHME, 2025.
+* Global Burden of Disease Collaborative Network, *GBD 2023 Risk Exposure
+  Estimates 1990–2023*, IHME, 2025.
 * Global Dietary Database, Tufts University —
   https://www.globaldietarydatabase.org/
 * United Nations, World Population Prospects —
