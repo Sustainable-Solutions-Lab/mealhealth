@@ -17,12 +17,12 @@ Upstream sources and their terms:
    data may not be redistributed. Only adapted, aggregated derivatives are
    bundled here.
 
-2. Global Dietary Database — Integrated Assessment (GDD-IA), Tufts University —
-   baseline per-country food-group intakes and the processed/unprocessed
-   red-meat split, and total dietary energy.
-   Licence: free for non-commercial research, teaching and private study with
-   attribution; may not be redistributed or used commercially without Tufts
-   permission (see LicenseRef-GDD-NonCommercial.txt).
+2. GDD-IA (M. Springmann et al., in preparation) — baseline per-country
+   food-group intakes, the processed/unprocessed red-meat split, and total
+   dietary energy, as constructed by the GLADE project.
+   Licence: planned public release under CC-BY-4.0; shared with this project's
+   author by permission ahead of that release. Only a reduced, derived product
+   is bundled here. Attribute to M. Springmann et al. (GDD-IA).
 
 3. UN World Population Prospects (WPP) — population age structure and abridged
    life tables (survivorship and remaining life expectancy).
@@ -36,5 +36,5 @@ the GPL-3.0-or-later licence that applies to the package's source code: the GPL
 covers the code, not these data files, and does not grant any commercial-use or
 unrestricted-redistribution rights over them.
 
-No warranty is provided. When publishing results, cite GBD (IHME), the Global
-Dietary Database, and UN WPP as described in docs/data_sources.md.
+No warranty is provided. When publishing results, cite GBD (IHME), GDD-IA
+(M. Springmann et al.), UN WPP, and GLADE, as described in docs/data_sources.md.

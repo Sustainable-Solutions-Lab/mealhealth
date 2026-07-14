@@ -27,7 +27,7 @@ tools/generate_rr_age_attenuation.py # one-off: curated RR age-attenuation table
 tools/baseline_diet_from_glade.py  # build baseline diet (temporary; see docstring)
 tools/reference/*.csv              # curated regeneration inputs (red-meat RR, TMREL, age attenuation)
 tests/                  # pytest suite
-docs/                   # methodology, food groups, data sources, usage
+docs/                   # Sphinx site: conf.py + Markdown pages (MyST), built with furo
 ```
 
 ## Key design decisions
@@ -52,12 +52,21 @@ docs/                   # methodology, food groups, data sources, usage
 
 ## Dev workflow
 
+Use [uv](https://docs.astral.sh/uv/). The first `uv run` sets up the environment
+and installs the project plus the `dev` dependency group (defined in
+`pyproject.toml`).
+
 ```bash
-uv venv .venv && . .venv/bin/activate && uv pip install -e ".[dev]"
-python -m pytest -q
-ruff format . && ruff check .
-reuse lint
+uv run pytest -q
+uv run ruff format . && uv run ruff check .
+uv run reuse lint
+uv run --group docs sphinx-build -b html docs docs/_build/html   # build the docs site
 ```
+
+Dev and docs tooling live in PEP 735 `[dependency-groups]`, not in published
+extras. The docs site (Sphinx + MyST + furo) is deployed to GitHub Pages by
+`.github/workflows/docs.yml` on pushes to `master`, once Pages is enabled for
+the repo.
 
 ## Regenerating bundled data
 
@@ -66,7 +75,7 @@ Health/demographic data regenerates from public raw datasets (see
 and the GBD 2023 Burden-of-Proof RR curves download automatically):
 
 ```bash
-python tools/prepare_data.py
+uv run python tools/prepare_data.py
 ```
 
 The RR age structure and TMRELs are read from curated tables under
@@ -77,9 +86,9 @@ remaining use of GBD 2019, as the donor for the age shape).
 The baseline diet (`baseline_intake.csv`, `baseline_calories.csv`) is a separate
 bundled dataset; its committed CSVs are canonical and need no regeneration.
 `tools/baseline_diet_from_glade.py` is a **temporary** builder sourcing it from
-the **GLADE** project (the Global Land, Agriculture, Diet and Emissions model,
-formerly `food-opt`) until the dataset is published on Zenodo — the only place
-the project still references GLADE.
+the **GLADE** project (the Global Land, Agriculture, Diet and Emissions model)
+until the dataset is published on Zenodo — the only place the project still
+references GLADE.
 
 The seafood EPA+DHA baseline (`baseline_nutrients.csv`) is independently built
 from the dietary files in the official GBD 2023 Risk Exposure Estimates

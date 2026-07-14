@@ -21,9 +21,9 @@ Quick start
 >>> print(result.summary())
 
 NOTE ON LICENSING: the source code is GPL-3.0-or-later, but the bundled data is
-derived from GBD/GDD/WPP datasets under non-commercial terms. The distributed
-package as a whole is therefore for **non-commercial use**. See
-``docs/data_sources.md``.
+derived from GBD, GDD-IA and WPP datasets; its non-commercial restriction comes
+from IHME GBD, so the distributed package as a whole is for **non-commercial
+use**. See ``docs/data_sources.md``.
 """
 
 from .api import (
