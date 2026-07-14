@@ -12,11 +12,14 @@ reduced to the minimum needed to evaluate the health-impact formulas (see
 `src/mealhealth/data/DATA_PROVENANCE.md` for exact schemas).
 
 The **health and demographic** data (`relative_risks.csv`, `mortality.csv`,
-`population.csv`, `life_table.csv`) and `baseline_nutrients.csv` are
-reproducible from documented source datasets. `tools/prepare_data.py` processes
-the health/demographic inputs, while
+`population.csv`, `life_table.csv`, `gbd_reference_life_table.csv`) and
+`baseline_nutrients.csv` are reproducible from documented source datasets.
+`tools/prepare_data.py` processes the health/demographic inputs, while
 `tools/build_baseline_nutrients_from_gbd.py` builds the nutrient baseline. They
-use the **GBD 2023** vintage throughout. The **baseline diet**
+use the **GBD 2023** vintage for relative risks, mortality, and nutrient
+exposure. The small GBD 2019 reference life table is bundled directly because
+it is a versioned common standard rather than a country-year input. The
+**baseline diet**
 (`baseline_intake.csv`, `baseline_calories.csv`) is a separate derived dataset —
 see [Baseline diet](#baseline-diet) below.
 
@@ -28,6 +31,7 @@ see [Baseline diet](#baseline-diet) below.
 | `mortality.csv`         | IHME GBD 2023 cause-specific death rates (2020) | IHME non-commercial |
 | `population.csv`        | UN World Population Prospects (population by age) | CC BY 3.0 IGO |
 | `life_table.csv`        | UN World Population Prospects (abridged life tables) | CC BY 3.0 IGO |
+| `gbd_reference_life_table.csv` | IHME GBD 2019 theoretical minimum-risk reference life table | IHME non-commercial |
 | `baseline_intake.csv`   | Baseline diet dataset (see below) | GDD non-commercial |
 | `baseline_calories.csv` | Baseline diet dataset (see below) | GDD non-commercial |
 | `baseline_nutrients.csv` | Dietary files from IHME GBD 2023 Risk Exposure Estimates 1990–2023 + UN WPP population weights | IHME non-commercial / CC BY 3.0 IGO |
@@ -56,7 +60,7 @@ multiplicative log-RR **age-attenuation** table
 curated **TMREL** (`tools/reference/rr_tmrel.csv`, GBD 2023 appendix Table 18).
 The age-attenuation table is produced once by
 `tools/generate_rr_age_attenuation.py` from the GBD 2019 relative-risk workbook
-(GBD's documented 60-64 reference age, the only remaining use of GBD 2019). To
+(GBD's documented 60-64 reference age). To
 rebuild it, download *"Relative risks: all risk factors except for ambient air
 pollution, alcohol, smoking, and temperature [XLSX]"* from
 <https://ghdx.healthdata.org/record/ihme-data/gbd-2019-relative-risks> (free IHME
@@ -118,6 +122,19 @@ in. Reproduce this query (a permalink configured for 2020 is
 - **Sex:** Both · **Year:** 2020
 
 Export as CSV and save as `data/raw/IHME-GBD_2023-death-rates-2020.csv`.
+
+### 3. IHME GBD 2019 reference life table (bundled)
+
+`gbd_reference_life_table.csv` is the 21-row theoretical minimum-risk life
+table published by IHME for GBD 2019 (DOI
+<https://doi.org/10.6069/1D4Y-YQ37>). It gives the common remaining life
+expectancy at each five-year age-group boundary used to calculate standard YLL.
+The upstream file is named
+`IHME_GBD_2019_TMRLT_Y2021M01D05.CSV`. GBD 2023 retains the same method—deaths
+at each age multiplied by standard life expectancy—but IHME has not published a
+newer standalone reference-table dataset. The API therefore labels this output
+GBD-standard and documents the exact table vintage rather than implying it is a
+GBD 2023 data product.
 
 ### 4. UN World Population Prospects (automatic)
 
@@ -204,6 +221,8 @@ When publishing results, cite:
   derived from GBD 2019 Relative Risks)
 * Global Burden of Disease Collaborative Network, *GBD 2023 Risk Exposure
   Estimates 1990–2023*, IHME, 2025.
+* Global Burden of Disease Collaborative Network, GBD 2019 Reference Life
+  Table, IHME — https://doi.org/10.6069/1D4Y-YQ37
 * Global Dietary Database, Tufts University —
   https://www.globaldietarydatabase.org/
 * United Nations, World Population Prospects —

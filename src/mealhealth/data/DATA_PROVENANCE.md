@@ -64,4 +64,10 @@ the 15 adult age groups and both sexes with WPP 2020 weights.
 `lx` (radix 100000) and remaining life expectancy `ex` by age band; per country
 with World fallback where unavailable.
 
+## `gbd_reference_life_table.csv`
+`age, ex` — GBD 2019 theoretical minimum-risk reference life table (TMRLT),
+published by IHME as `IHME_GBD_2019_TMRLT_Y2021M01D05.CSV` (DOI
+10.6069/1D4Y-YQ37). It supplies the common aspirational remaining life
+expectancy used for the additional standard-YLL output.
+
 Countries with complete data across all files: 175.

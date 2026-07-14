@@ -10,7 +10,8 @@ Implements the formulas in ``docs/methodology.md``:
   interpolation;
 * ``RR_d(x) = prod_r RR_{r,d}(x_r)`` over risk factors affecting cause ``d``;
 * ``PAF_d(x) = 1 - RR_d(x) / RR_d(x_base)`` relative to the baseline diet;
-* ``dYLL_d(x) = PAF_d(x) . Y_d`` with the YLL anchor ``Y_d`` defined per mode:
+* ``dYLL_d(x) = PAF_d(x) . Y_d`` with both local-life-table and GBD-standard
+  YLL anchors, defined per mode:
     - population: ``Y_d`` = total observed cause-``d`` YLL for the country, with
       an age (YLL)-weighted effective RR curve;
     - individual (median / given age): an expected remaining-lifetime YLL built
@@ -137,36 +138,52 @@ class CountryBurden:
         self.ex: dict[str, float] = dict(
             lt[["age", "ex"]].itertuples(index=False, name=None)
         )
+        standard_lt = data.gbd_reference_life_table()
+        self.standard_ex: dict[str, float] = dict(
+            standard_lt[["age", "ex"]].itertuples(index=False, name=None)
+        )
 
         self._total_yll = self._compute_total_yll()
+        self._total_yll_standard = self._compute_total_yll(standard=True)
         self._age_weights = self._compute_age_weights()
+        self._age_weights_standard = self._compute_age_weights(standard=True)
 
     # -- population-mode anchors ------------------------------------------
 
-    def _yll_by_cause_age(self, cause: str, age: str) -> float:
+    def _yll_by_cause_age(
+        self, cause: str, age: str, *, standard: bool = False
+    ) -> float:
         """Observed cause-d YLL in an age band = deaths . remaining life exp."""
         m = self.death_rate.get((cause, age), 0.0)
         pop = self.population.get(age, 0.0)
-        ex = self.ex.get(age, 0.0)
+        life_expectancy = self.standard_ex if standard else self.ex
+        ex = life_expectancy.get(age, 0.0)
         return m * pop * ex
 
-    def _compute_total_yll(self) -> dict[str, float]:
+    def _compute_total_yll(self, *, standard: bool = False) -> dict[str, float]:
         """Y_d: total observed YLL for each cause (all ages)."""
         out: dict[str, float] = {}
         for cause in CAUSES:
             out[cause] = sum(
-                self._yll_by_cause_age(cause, age) for age in self.population
+                self._yll_by_cause_age(cause, age, standard=standard)
+                for age in self.population
             )
         return out
 
-    def total_yll(self, cause: str) -> float:
-        return self._total_yll[cause]
+    def total_yll(self, cause: str, *, standard: bool = False) -> float:
+        totals = self._total_yll_standard if standard else self._total_yll
+        return totals[cause]
 
-    def _compute_age_weights(self) -> dict[tuple[str, str], float]:
+    def _compute_age_weights(
+        self, *, standard: bool = False
+    ) -> dict[tuple[str, str], float]:
         """w_{a,d} = YLL_{a,d} / sum_a YLL_{a,d} over adult ages."""
         out: dict[tuple[str, str], float] = {}
         for cause in CAUSES:
-            ylls = {a: self._yll_by_cause_age(cause, a) for a in ADULT_AGES}
+            ylls = {
+                a: self._yll_by_cause_age(cause, a, standard=standard)
+                for a in ADULT_AGES
+            }
             total = sum(ylls.values())
             for a in ADULT_AGES:
                 out[(cause, a)] = (
@@ -174,8 +191,9 @@ class CountryBurden:
                 )
         return out
 
-    def age_weight(self, cause: str, age: str) -> float:
-        return self._age_weights[(cause, age)]
+    def age_weight(self, cause: str, age: str, *, standard: bool = False) -> float:
+        weights = self._age_weights_standard if standard else self._age_weights
+        return weights[(cause, age)]
 
     # -- individual-mode helpers ------------------------------------------
 
@@ -253,10 +271,13 @@ def _population_log_rr(
     risk: str,
     cause: str,
     intake: float,
+    *,
+    standard: bool = False,
 ) -> float:
     """YLL-weighted effective log(RR) across adult ages."""
     return sum(
-        burden.age_weight(cause, age) * curves.log_rr(risk, cause, age, intake)
+        burden.age_weight(cause, age, standard=standard)
+        * curves.log_rr(risk, cause, age, intake)
         for age in ADULT_AGES
     )
 
@@ -273,6 +294,8 @@ class CauseResult:
     delta_yll: float  # years gained (>0) or lost (<0)
     rr_baseline: float
     rr_meal: float
+    delta_yll_standard: float = 0.0
+    paf_standard: float = 0.0
 
 
 @dataclass
@@ -290,6 +313,13 @@ class MealAssessment:
     warnings: list[str]
     relative_only: bool
     age: float | None = None
+    delta_yll_standard_total: float = 0.0
+    risk_attribution_standard: dict[str, float] = field(default_factory=dict)
+
+    @property
+    def delta_yll_local_total(self) -> float:
+        """Explicit alias for the backward-compatible local-life-table total."""
+        return self.delta_yll_total
 
     @property
     def delta_paf_total(self) -> dict[str, float]:
@@ -303,13 +333,19 @@ class MealAssessment:
         ]
         if not self.relative_only:
             lines.append(
-                f"  Net effect of eating this meal daily for life: "
+                f"  Local-life-table effect of eating this meal daily for life: "
                 f"{abs(self.delta_yll_total):.4g} years of life {verb} "
                 + (
                     "(population-annual YLL)"
                     if self.mode == "population"
                     else "(per person, lifetime)"
                 )
+            )
+            standard_verb = "gained" if self.delta_yll_standard_total >= 0 else "lost"
+            lines.append(
+                f"  GBD-standard potential effect: "
+                f"{abs(self.delta_yll_standard_total):.4g} years of life "
+                f"{standard_verb}"
             )
         lines.append(
             f"  Baseline scale f = {self.f:.3f} "
@@ -319,7 +355,10 @@ class MealAssessment:
         for c, r in self.causes.items():
             piece = f"    {c:7} PAF {r.paf:+.4f}"
             if not self.relative_only:
-                piece += f"  dYLL {r.delta_yll:+.4g}"
+                piece += (
+                    f"  dYLL local {r.delta_yll:+.4g}"
+                    f"  standard {r.delta_yll_standard:+.4g}"
+                )
             lines.append(piece)
         for w in self.warnings:
             lines.append(f"  ! {w}")
@@ -394,8 +433,19 @@ def assess(
         )
 
     delta_total = sum(r.delta_yll for r in causes.values())
+    delta_standard_total = sum(r.delta_yll_standard for r in causes.values())
     attribution = _attribute_by_risk(
         curves, burden, diet, risk_factors, causes, mode, a0
+    )
+    attribution_standard = _attribute_by_risk(
+        curves,
+        burden,
+        diet,
+        risk_factors,
+        causes,
+        mode,
+        a0,
+        standard=True,
     )
     return MealAssessment(
         country=country,
@@ -411,30 +461,65 @@ def assess(
         warnings=diet.warnings,
         relative_only=relative_only,
         age=a0,
+        delta_yll_standard_total=delta_standard_total,
+        risk_attribution_standard=attribution_standard,
     )
 
 
 def _assess_population(curves, burden, diet, risk_factors, relative_only):
     causes: dict[str, CauseResult] = {}
     for cause in CAUSES:
-        log_base = log_meal = 0.0
-        present = False
-        for risk in risk_factors:
-            if (risk, cause) not in curves.pairs:
-                continue
-            present = True
-            log_base += _population_log_rr(
-                curves, burden, risk, cause, diet.baseline_exposure[risk]
-            )
-            log_meal += _population_log_rr(
-                curves, burden, risk, cause, diet.exposure[risk]
-            )
-        if not present:
+        relevant = [r for r in risk_factors if (r, cause) in curves.pairs]
+        if not relevant:
             continue
-        rr_base, rr_meal = math.exp(log_base), math.exp(log_meal)
+
+        def effective_rr(
+            *,
+            standard: bool,
+            cause: str = cause,
+            relevant: tuple[str, ...] = tuple(relevant),
+        ) -> tuple[float, float]:
+            log_base = sum(
+                _population_log_rr(
+                    curves,
+                    burden,
+                    risk,
+                    cause,
+                    diet.baseline_exposure[risk],
+                    standard=standard,
+                )
+                for risk in relevant
+            )
+            log_meal = sum(
+                _population_log_rr(
+                    curves,
+                    burden,
+                    risk,
+                    cause,
+                    diet.exposure[risk],
+                    standard=standard,
+                )
+                for risk in relevant
+            )
+            return math.exp(log_base), math.exp(log_meal)
+
+        rr_base, rr_meal = effective_rr(standard=False)
         paf = 1.0 - rr_meal / rr_base if rr_base > 0 else 0.0
+        rr_base_standard, rr_meal_standard = effective_rr(standard=True)
+        paf_standard = (
+            1.0 - rr_meal_standard / rr_base_standard if rr_base_standard > 0 else 0.0
+        )
         yd = 0.0 if relative_only else burden.total_yll(cause)
-        causes[cause] = CauseResult(cause, paf, paf * yd, rr_base, rr_meal)
+        yd_standard = 0.0 if relative_only else burden.total_yll(cause, standard=True)
+        causes[cause] = CauseResult(
+            cause=cause,
+            paf=paf,
+            delta_yll=paf * yd,
+            rr_baseline=rr_base,
+            rr_meal=rr_meal,
+            delta_yll_standard=paf_standard * yd_standard,
+            paf_standard=paf_standard,
+        )
     return causes
 
 
@@ -447,6 +532,7 @@ def _assess_individual(curves, burden, diet, risk_factors, a0, relative_only):
         if not relevant:
             continue
         delta_yll = 0.0
+        delta_yll_standard = 0.0
         # PAF reported at the individual's current age band (for the relative
         # metric); the YLL sum uses the age-specific PAF at each future age.
         rr_base_a0 = rr_meal_a0 = 1.0
@@ -468,12 +554,24 @@ def _assess_individual(curves, burden, diet, risk_factors, a0, relative_only):
                 span = burden.age_span_years(age_band)
                 ex = burden.ex.get(age_band, 0.0)
                 delta_yll += surv * (m * span) * ex * paf_a
+                standard_ex = burden.standard_ex.get(age_band, 0.0)
+                delta_yll_standard += surv * (m * span) * standard_ex * paf_a
         paf0 = 1.0 - rr_meal_a0 / rr_base_a0 if rr_base_a0 > 0 else 0.0
-        causes[cause] = CauseResult(cause, paf0, delta_yll, rr_base_a0, rr_meal_a0)
+        causes[cause] = CauseResult(
+            cause=cause,
+            paf=paf0,
+            delta_yll=delta_yll,
+            rr_baseline=rr_base_a0,
+            rr_meal=rr_meal_a0,
+            delta_yll_standard=delta_yll_standard,
+            paf_standard=paf0,
+        )
     return causes
 
 
-def _attribute_by_risk(curves, burden, diet, risk_factors, causes, mode, a0):
+def _attribute_by_risk(
+    curves, burden, diet, risk_factors, causes, mode, a0, *, standard=False
+):
     """Additive decomposition of total dYLL across risk factors.
 
     Each cause's dYLL is split in proportion to each risk factor's share of the
@@ -489,7 +587,8 @@ def _attribute_by_risk(curves, burden, diet, risk_factors, causes, mode, a0):
         age_bands = [a for a in ADULT_AGES if AGE_START[a] >= AGE_START[a0_bucket]]
 
     for cause, res in causes.items():
-        if res.delta_yll == 0.0:
+        cause_delta = res.delta_yll_standard if standard else res.delta_yll
+        if cause_delta == 0.0:
             continue
         # log-RR change per risk (summed/weighted exactly as the cause PAF is).
         contrib: dict[str, float] = {}
@@ -498,9 +597,19 @@ def _attribute_by_risk(curves, burden, diet, risk_factors, causes, mode, a0):
                 continue
             if mode == "population":
                 d = _population_log_rr(
-                    curves, burden, risk, cause, diet.exposure[risk]
+                    curves,
+                    burden,
+                    risk,
+                    cause,
+                    diet.exposure[risk],
+                    standard=standard,
                 ) - _population_log_rr(
-                    curves, burden, risk, cause, diet.baseline_exposure[risk]
+                    curves,
+                    burden,
+                    risk,
+                    cause,
+                    diet.baseline_exposure[risk],
+                    standard=standard,
                 )
             else:
                 d = 0.0
@@ -513,5 +622,5 @@ def _attribute_by_risk(curves, burden, diet, risk_factors, causes, mode, a0):
         if abs(total) < 1e-15:
             continue
         for risk, d in contrib.items():
-            attribution[risk] += (d / total) * res.delta_yll
+            attribution[risk] += (d / total) * cause_delta
     return attribution

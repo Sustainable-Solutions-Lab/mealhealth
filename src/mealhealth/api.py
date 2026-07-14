@@ -76,6 +76,7 @@ def assess_meal(
     -------
     MealAssessment
         Has ``delta_yll_total`` (years gained if positive, lost if negative),
+        ``delta_yll_standard_total`` under the common GBD reference life table,
         a per-cause ``causes`` breakdown, ``risk_attribution`` per active factor,
         the substitution factor ``f``, and a ``summary()`` method.
     """

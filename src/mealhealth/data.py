@@ -112,6 +112,12 @@ def life_table() -> pd.DataFrame:
 
 
 @lru_cache(maxsize=1)
+def gbd_reference_life_table() -> pd.DataFrame:
+    """age, ex (GBD 2019 theoretical-minimum-risk life expectancy)."""
+    return _read("gbd_reference_life_table.csv")
+
+
+@lru_cache(maxsize=1)
 def available_countries() -> list[str]:
     """ISO3 codes with complete bundled data, sorted."""
     return sorted(baseline_intake()["country"].unique())

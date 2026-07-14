@@ -45,10 +45,13 @@ print(result.summary())
 ### The result object
 
 ```python
-result.delta_yll_total      # net ΔYLL (years gained if > 0, lost if < 0)
+result.delta_yll_total      # net ΔYLL using the country's life table
+result.delta_yll_local_total # explicit alias for delta_yll_total
+result.delta_yll_standard_total # potential ΔYLL using the GBD reference table
 result.causes               # dict cause -> CauseResult(paf, delta_yll, rr_*)
 result.delta_paf_total      # dict cause -> PAF (relative metric)
 result.risk_attribution     # dict active risk factor -> ΔYLL (sums to total)
+result.risk_attribution_standard # same decomposition for GBD-standard ΔYLL
 result.f                    # baseline scaling factor used
 result.exposure             # substituted-diet exposures per group
 result.warnings             # e.g. meal exceeds baseline calories
@@ -69,6 +72,7 @@ meal = {"red_meat": 150, "processed_meat": 60}
 pop = mh.assess_meal(meal, 650, "USA")                       # annual, whole pop
 ind = mh.assess_meal(meal, 650, "USA", mode="age", age=45)   # per-person lifetime
 print(pop.delta_yll_total, ind.delta_yll_total)
+print(pop.delta_yll_standard_total, ind.delta_yll_standard_total)
 print("per-meal marginal (years):", mh.per_meal_marginal(ind))
 ```
 

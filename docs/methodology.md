@@ -73,13 +73,24 @@ PAF_d(x) = 1 − RR_d(x) / RR_d(x_base)
 `PAF_d > 0` ⇒ the meal lowers cause-`d` risk versus baseline; `< 0` ⇒ it raises
 it.
 
-## 3. From PAF to ΔYLL — the YLL anchor `Y_d`
+## 3. From PAF to ΔYLL — local and standard anchors
 
 ```
 ΔYLL_d(x) = PAF_d(x) · Y_d           Total ΔYLL = Σ_d ΔYLL_d
 ```
 
-The anchor `Y_d` and the RR curve used differ by **age mode**.
+Every assessment reports two versions:
+
+* `delta_yll_total` uses remaining life expectancy from the country's UN WPP
+  period life table. It estimates years gained or lost under current local
+  mortality conditions.
+* `delta_yll_standard_total` uses the common GBD 2019 theoretical minimum-risk
+  reference life table. It measures potential years gained or lost relative to
+  GBD's aspirational longevity standard and is the appropriate output for
+  comparison with published GBD YLL estimates.
+
+The anchor `Y_d` and the RR curve used differ by **age mode** and life-table
+choice.
 
 ### (a) Population mode
 
@@ -93,10 +104,10 @@ w_{a,d}             = YLL_{c,d,a} / Σ_a YLL_{c,d,a}
 
 where `YLL_{c,d,a} = m_{c,d,a} · P_{c,a} · e_a` is reconstructed from the
 cause/age death rate `m`, the age-band population `P`, and the remaining life
-expectancy `e_a` from the country life table. The anchor is the **total
-observed YLL for cause `d`** in the country, `Y_d = Σ_a YLL_{c,d,a}`. This is
-the burden generated under the baseline diet, so scaling it by the relative
-change `PAF_d` gives the new burden.
+expectancy `e_a`. The calculation is performed once with the country life table
+and once with the GBD reference table. Each version uses its corresponding YLL
+weights in the effective RR curve and its corresponding total cause burden
+`Y_d = Σ_a YLL_{c,d,a}`.
 
 ### (b) Median person / (c) person of given age `a0`
 
@@ -113,7 +124,9 @@ in remaining-lifetime YLL from cause `d` for someone currently aged `a0` is:
 * `m_{c,d,a} · n_a` — expected cause-`d` deaths in band `a` per person entering
   it (annual death rate × band width `n_a`; the open 95+ interval uses its
   remaining life expectancy as the effective width).
-* `e_a` — remaining life expectancy at age `a` (years lost per such death).
+* `e_a` — either local or GBD-standard remaining life expectancy at age `a`
+  (years lost per such death). Local survivorship `S(a | a0)` and time at risk
+  remain country-specific in both versions.
 * `PAF_{d,a}(x) = 1 − RR_{d,a}(x)/RR_{d,a}(x_base)`, evaluated **age by age**
   with the age-specific RR curve, because the dietary effect attenuates with
   age for cardiovascular causes.
@@ -163,10 +176,11 @@ only the RR curves and the baseline exposure, not mortality or life tables.
   single-meal effect.
 * Foods outside the GBD risk groups affect the result only via caloric
   displacement of the baseline.
-* The population-mode YLL anchor is reconstructed as
-  `deaths × remaining life expectancy` using the country's own (period) life
-  table, rather than GBD's aspirational standard life table; the headline
-  metric is therefore "expected years of life lost at local life expectancy".
+* The backward-compatible headline `delta_yll_total` is reconstructed as
+  `deaths × remaining life expectancy` using the country's own period life
+  table. `delta_yll_standard_total` uses GBD's aspirational reference life table
+  and is a standardized potential-life-loss measure, not a forecast of years
+  that this intervention alone would realize under current local mortality.
 * Additional dietary risk factors (sodium, sugar-sweetened beverages) are
   **not** modelled. GBD's sodium effect runs through a blood-pressure-mediated
   pathway in different units, and the SSB/sugar evidence is weak; both were

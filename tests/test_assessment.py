@@ -9,6 +9,7 @@ import math
 import pytest
 
 import mealhealth as mh
+from mealhealth import data
 from mealhealth.model import CountryBurden, RelativeRiskCurves, _population_log_rr
 
 # --------------------------------------------------------------------------
@@ -40,8 +41,10 @@ def test_empty_meal_zero_effect(mode, age):
     r = mh.assess_meal({}, 0.0, "USA", mode=mode, age=age)
     assert r.f == pytest.approx(1.0)
     assert r.delta_yll_total == pytest.approx(0.0, abs=1e-9)
+    assert r.delta_yll_standard_total == pytest.approx(0.0, abs=1e-9)
     for c in r.causes.values():
         assert c.paf == pytest.approx(0.0, abs=1e-12)
+        assert c.delta_yll_standard == pytest.approx(0.0, abs=1e-9)
 
 
 def test_omitted_omega3_preserves_existing_assessment():
@@ -68,6 +71,7 @@ def test_healthy_meal_gains_years_usa():
         country="USA",
     )
     assert r.delta_yll_total > 0  # protective groups -> years gained
+    assert r.delta_yll_standard_total > r.delta_yll_total
     for c in ["CHD", "Stroke", "T2DM"]:
         assert r.causes[c].paf >= -1e-9
 
@@ -164,6 +168,9 @@ def test_attribution_sums_to_total():
     assert sum(r.risk_attribution.values()) == pytest.approx(
         r.delta_yll_total, rel=1e-6
     )
+    assert sum(r.risk_attribution_standard.values()) == pytest.approx(
+        r.delta_yll_standard_total, rel=1e-6
+    )
 
 
 def test_relative_only_matches_full_paf():
@@ -171,8 +178,10 @@ def test_relative_only_matches_full_paf():
     full = mh.assess_meal(meal, 500, "USA")
     rel = mh.assess_meal(meal, 500, "USA", relative_only=True)
     assert rel.delta_yll_total == pytest.approx(0.0)
+    assert rel.delta_yll_standard_total == pytest.approx(0.0)
     for c in full.causes:
         assert rel.causes[c].paf == pytest.approx(full.causes[c].paf)
+        assert rel.causes[c].delta_yll_standard == pytest.approx(0.0)
 
 
 def test_processed_meat_toggle():
@@ -221,6 +230,7 @@ def test_usa_baseline_burden_reasonable():
     # US total YLL for CHD should be in the millions of years (deaths ~ 4/1000
     # at older ages x large older population x ~15-20 yr life exp).
     assert 1e6 < b.total_yll("CHD") < 5e7
+    assert b.total_yll("CHD", standard=True) > b.total_yll("CHD")
     # baseline calories ~2400 kcal
     assert 1800 < b.baseline_kcal < 3200
     # red + processed meat split sums to the combined red-meat intake ~66.6 g/day
@@ -237,3 +247,12 @@ def test_missing_country_nutrient_baseline_raises(monkeypatch):
     monkeypatch.setattr(data, "baseline_nutrients", lambda: incomplete)
     with pytest.raises(ValueError, match="missing USA"):
         CountryBurden("USA")
+
+
+def test_gbd_reference_life_table_values():
+    lt = data.gbd_reference_life_table()
+    assert len(lt) == 21
+    ex = dict(lt[["age", "ex"]].itertuples(index=False, name=None))
+    assert ex["<1"] == pytest.approx(88.8718951)
+    assert ex["70-74"] == pytest.approx(21.28820012)
+    assert ex["95+"] == pytest.approx(5.922359078)
