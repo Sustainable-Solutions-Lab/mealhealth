@@ -75,10 +75,12 @@ def assess_meal(
     Returns
     -------
     MealAssessment
-        Has ``delta_yll_total`` (years gained if positive, lost if negative),
-        ``delta_yll_standard_total`` under the common GBD reference life table,
-        a per-cause ``causes`` breakdown, ``risk_attribution`` per active factor,
-        the substitution factor ``f``, and a ``summary()`` method.
+        Has ``delta_yll_local_total`` and ``delta_yll_standard_total`` (years
+        gained if positive, lost if negative), a per-cause ``causes``
+        breakdown, matching local and standard risk attribution, the
+        substitution factor ``f``, and a ``summary()`` method. The legacy
+        ``delta_yll_total`` and ``risk_attribution`` names remain aliases for
+        their local variants.
     """
     return assess(
         meal,
@@ -95,17 +97,17 @@ def assess_meal(
 def per_meal_marginal(assessment: MealAssessment) -> float:
     """Linear/marginal per-meal attribution of a *lifetime* assessment.
 
-    Returns ``delta_yll_total / MEALS_PER_LIFETIME``. Only meaningful for the
-    individual lifetime modes (``"median"``/``"age"``). This is the lifetime
-    effect divided evenly over the meals in a lifetime, NOT a biological
-    single-meal effect.
+    Returns ``delta_yll_local_total / MEALS_PER_LIFETIME``. Only meaningful for
+    the individual lifetime modes (``"median"``/``"age"``). This is the
+    lifetime effect divided evenly over the meals in a lifetime, NOT a
+    biological single-meal effect.
     """
     if assessment.mode == "population":
         raise ValueError(
             "per_meal_marginal is defined for individual lifetime modes "
             "('median'/'age'), not the population-annual mode."
         )
-    return assessment.delta_yll_total / MEALS_PER_LIFETIME
+    return assessment.delta_yll_local_total / MEALS_PER_LIFETIME
 
 
 def list_countries() -> list[str]:

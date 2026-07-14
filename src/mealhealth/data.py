@@ -106,15 +106,15 @@ def population() -> pd.DataFrame:
 
 
 @lru_cache(maxsize=1)
-def life_table() -> pd.DataFrame:
+def local_life_table() -> pd.DataFrame:
     """country, age, lx (survivors, radix 100000), ex (remaining life exp.)."""
-    return _read("life_table.csv")
+    return _read("local_life_table.csv")
 
 
 @lru_cache(maxsize=1)
-def gbd_reference_life_table() -> pd.DataFrame:
+def standard_life_table() -> pd.DataFrame:
     """age, ex (GBD 2023 theoretical-minimum-risk life expectancy)."""
-    return _read("gbd_reference_life_table.csv")
+    return _read("standard_life_table.csv")
 
 
 @lru_cache(maxsize=1)

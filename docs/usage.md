@@ -45,12 +45,15 @@ print(result.summary())
 ### The result object
 
 ```python
-result.delta_yll_total      # net ΔYLL using the country's life table
-result.delta_yll_local_total # explicit alias for delta_yll_total
+result.delta_yll_local_total # net ΔYLL using the country's life table
+result.delta_yll_total       # backward-compatible alias for the local total
 result.delta_yll_standard_total # potential ΔYLL using the GBD reference table
-result.causes               # dict cause -> CauseResult(paf, delta_yll, rr_*)
-result.delta_paf_total      # dict cause -> PAF (relative metric)
-result.risk_attribution     # dict active risk factor -> ΔYLL (sums to total)
+result.causes               # cause -> CauseResult with local/standard PAF/YLL/RR
+result.delta_paf_local_total # dict cause -> local-weighted PAF
+result.delta_paf_standard_total # dict cause -> standard-weighted PAF
+result.delta_paf_total       # backward-compatible alias for local PAFs
+result.risk_attribution_local # active factor -> local ΔYLL (sums to local total)
+result.risk_attribution       # backward-compatible alias for local attribution
 result.risk_attribution_standard # same decomposition for GBD-standard ΔYLL
 result.f                    # baseline scaling factor used
 result.exposure             # substituted-diet exposures per group
@@ -59,8 +62,8 @@ result.summary()            # human-readable report
 ```
 
 When supplied, `omega3` appears as an additional key in `exposure`,
-`baseline_exposure`, and `risk_attribution`; those exposure dictionaries use the
-engine's internal g/day unit.
+`baseline_exposure`, and `risk_attribution_local`; those exposure dictionaries
+use the engine's internal g/day unit.
 
 ## Examples
 
@@ -71,7 +74,7 @@ meal = {"red_meat": 150, "processed_meat": 60}
 
 pop = mh.assess_meal(meal, 650, "USA")                       # annual, whole pop
 ind = mh.assess_meal(meal, 650, "USA", mode="age", age=45)   # per-person lifetime
-print(pop.delta_yll_total, ind.delta_yll_total)
+print(pop.delta_yll_local_total, ind.delta_yll_local_total)
 print(pop.delta_yll_standard_total, ind.delta_yll_standard_total)
 print("per-meal marginal (years):", mh.per_meal_marginal(ind))
 ```
@@ -106,9 +109,10 @@ mh.nutrient_factors()["omega3"].api_unit       # 'mg'
 ## Reproducing the bundled data
 
 The bundled **health and demographic** CSVs (`relative_risks.csv`,
-`mortality.csv`, `population.csv`, `life_table.csv`) are regenerated from public
-source datasets. Download the two IHME GBD files into `data/raw/` (the UN WPP
-files download automatically), then run:
+`mortality.csv`, `population.csv`, `local_life_table.csv`, and
+`standard_life_table.csv`) are regenerated from public source datasets.
+Download the two IHME GBD files into `data/raw/` (the UN WPP files download
+automatically), then run:
 
 ```bash
 python tools/prepare_data.py

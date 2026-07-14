@@ -81,9 +81,10 @@ it.
 
 Every assessment reports two versions:
 
-* `delta_yll_total` uses remaining life expectancy from the country's UN WPP
-  period life table. It estimates years gained or lost under current local
-  mortality conditions.
+* `delta_yll_local_total` uses remaining life expectancy from the country's UN
+  WPP period life table. It estimates years gained or lost under current local
+  mortality conditions. The original `delta_yll_total` name remains as a
+  backward-compatible alias.
 * `delta_yll_standard_total` uses the common GBD 2023 theoretical minimum-risk
   reference life table. It measures potential years gained or lost relative to
   GBD's aspirational longevity standard and is the appropriate output for
@@ -176,11 +177,12 @@ only the RR curves and the baseline exposure, not mortality or life tables.
   single-meal effect.
 * Foods outside the GBD risk groups affect the result only via caloric
   displacement of the baseline.
-* The backward-compatible headline `delta_yll_total` is reconstructed as
-  `deaths × remaining life expectancy` using the country's own period life
-  table. `delta_yll_standard_total` uses GBD's aspirational reference life table
-  and is a standardized potential-life-loss measure, not a forecast of years
-  that this intervention alone would realize under current local mortality.
+* `delta_yll_local_total` is reconstructed as `deaths × remaining life
+  expectancy` using the country's own period life table; `delta_yll_total`
+  remains an alias. `delta_yll_standard_total` uses GBD's aspirational reference
+  life table and is a standardized potential-life-loss measure, not a forecast
+  of years that this intervention alone would realize under current local
+  mortality.
 * Additional dietary risk factors (sodium, sugar-sweetened beverages) are
   **not** modelled. GBD's sodium effect runs through a blood-pressure-mediated
   pathway in different units, and the SSB/sugar evidence is weak; both were

@@ -82,7 +82,7 @@ def test_incomplete_bop_cache_is_refreshed(tmp_path, monkeypatch):
     assert set(pd.read_csv(cache)["risk_factor"]) >= {"omega3"}
 
 
-def test_build_gbd_reference_life_table_uses_age_boundaries(tmp_path, monkeypatch):
+def test_build_standard_life_table_uses_age_boundaries(tmp_path, monkeypatch):
     raw_path = tmp_path / "tmrlt.csv"
     ages = [0, 1, *range(5, 115, 5)]
     pd.DataFrame(
@@ -90,7 +90,7 @@ def test_build_gbd_reference_life_table_uses_age_boundaries(tmp_path, monkeypatc
     ).to_csv(raw_path, index=False)
     monkeypatch.setattr(prepare, "GBD_REFERENCE_LIFE_TABLE_CSV", raw_path)
 
-    result = prepare.build_gbd_reference_life_table()
+    result = prepare.build_standard_life_table()
 
     assert result["age"].tolist() == prepare.AGE_BUCKETS
     assert result.loc[result["age"] == "<1", "ex"].item() == 100

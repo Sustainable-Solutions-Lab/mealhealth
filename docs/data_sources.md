@@ -12,7 +12,7 @@ reduced to the minimum needed to evaluate the health-impact formulas (see
 `src/mealhealth/data/DATA_PROVENANCE.md` for exact schemas).
 
 The **health and demographic** data (`relative_risks.csv`, `mortality.csv`,
-`population.csv`, `life_table.csv`, `gbd_reference_life_table.csv`) and
+`population.csv`, `local_life_table.csv`, `standard_life_table.csv`) and
 `baseline_nutrients.csv` are reproducible from documented source datasets.
 `tools/prepare_data.py` processes the health/demographic inputs, while
 `tools/build_baseline_nutrients_from_gbd.py` builds the nutrient baseline. They
@@ -28,8 +28,8 @@ see [Baseline diet](#baseline-diet) below.
 | `relative_risks.csv`    | IHME GBD 2023 Burden-of-Proof dose–response curves (age structure from GBD 2019); red-meat curve from literature meta-analyses | IHME non-commercial |
 | `mortality.csv`         | IHME GBD 2023 cause-specific death rates (2020) | IHME non-commercial |
 | `population.csv`        | UN World Population Prospects (population by age) | CC BY 3.0 IGO |
-| `life_table.csv`        | UN World Population Prospects (abridged life tables) | CC BY 3.0 IGO |
-| `gbd_reference_life_table.csv` | IHME GBD 2023 theoretical minimum-risk life table | IHME non-commercial |
+| `local_life_table.csv`  | UN World Population Prospects (abridged life tables) | CC BY 3.0 IGO |
+| `standard_life_table.csv` | IHME GBD 2023 theoretical minimum-risk life table | IHME non-commercial |
 | `baseline_intake.csv`   | Baseline diet dataset (see below) | GDD non-commercial |
 | `baseline_calories.csv` | Baseline diet dataset (see below) | GDD non-commercial |
 | `baseline_nutrients.csv` | Dietary files from IHME GBD 2023 Risk Exposure Estimates 1990–2023 + UN WPP population weights | IHME non-commercial / CC BY 3.0 IGO |
@@ -131,7 +131,7 @@ after signing in to GHDx. Save it, without renaming, as
 
 The upstream file gives theoretical minimum-risk remaining life expectancy at
 exact age boundaries from 0 through 110. `tools/prepare_data.py` validates it
-and produces the bundled 21-row `gbd_reference_life_table.csv` needed at
+and produces the bundled 21-row `standard_life_table.csv` needed at
 runtime. The derivative retains the boundary values corresponding to the
 model's abridged age bands from `<1` through `95+`; the final band uses the
 upstream age-95 value. The raw IHME download remains git-ignored and must be

@@ -18,8 +18,9 @@ Outputs (schemas documented in ``src/mealhealth/data/DATA_PROVENANCE.md``):
 - ``mortality.csv``       GBD 2023 cause-specific death rates:
                           age, cause, country, death_rate_per_1000
 - ``population.csv``      UN WPP population by age: age, country, population
-- ``life_table.csv``      UN WPP abridged life table: country, age, lx, ex
-- ``gbd_reference_life_table.csv``
+- ``local_life_table.csv``
+                          UN WPP abridged life table: country, age, lx, ex
+- ``standard_life_table.csv``
                           GBD 2023 theoretical minimum-risk life expectancy:
                           age, ex
 
@@ -792,7 +793,7 @@ def _normalize_wpp_age(label: object) -> str | None:
     return None
 
 
-def build_life_table(countries: set[str]) -> pd.DataFrame:
+def build_local_life_table(countries: set[str]) -> pd.DataFrame:
     """Per-country abridged life table (lx survivors, ex) for both sexes.
 
     Falls back to the World life table for countries WPP lacks individually.
@@ -861,7 +862,7 @@ def build_life_table(countries: set[str]) -> pd.DataFrame:
 # --------------------------------------------------------------------------
 
 
-def build_gbd_reference_life_table() -> pd.DataFrame:
+def build_standard_life_table() -> pd.DataFrame:
     """Adapt the GBD 2023 TMRLT to the model's abridged age buckets.
 
     The upstream table gives remaining life expectancy at exact age boundaries
@@ -919,18 +920,20 @@ def main() -> None:
     mort = build_mortality()
     print("Building population.csv ...")
     pop = build_population()
-    print("Building gbd_reference_life_table.csv ...")
-    gbd_reference_life_table = build_gbd_reference_life_table()
+    print("Building standard_life_table.csv ...")
+    standard_life_table = build_standard_life_table()
 
     # The baseline diet (a separate, bundled dataset) defines the country
     # universe; every diet country must have complete burden inputs.
     baseline_intake = pd.read_csv(OUT_DIR / "baseline_intake.csv")
     diet_countries = set(baseline_intake["country"])
 
-    print("Building life_table.csv ...")
-    life = build_life_table(diet_countries)
+    print("Building local_life_table.csv ...")
+    local_life_table = build_local_life_table(diet_countries)
 
-    complete = set(mort["country"]) & set(pop["country"]) & set(life["country"])
+    complete = (
+        set(mort["country"]) & set(pop["country"]) & set(local_life_table["country"])
+    )
     missing = diet_countries - complete
     if missing:
         raise RuntimeError(
@@ -943,24 +946,22 @@ def main() -> None:
     keep = diet_countries
     mort = mort[mort["country"].isin(keep)]
     pop = pop[pop["country"].isin(keep)]
-    life = life[life["country"].isin(keep)]
+    local_life_table = local_life_table[local_life_table["country"].isin(keep)]
     print(f"Countries with complete data: {len(keep)}")
 
     rr.to_csv(OUT_DIR / "relative_risks.csv", index=False)
     mort.to_csv(OUT_DIR / "mortality.csv", index=False)
     pop.to_csv(OUT_DIR / "population.csv", index=False)
-    life.to_csv(OUT_DIR / "life_table.csv", index=False)
-    gbd_reference_life_table.to_csv(
-        OUT_DIR / "gbd_reference_life_table.csv", index=False
-    )
+    local_life_table.to_csv(OUT_DIR / "local_life_table.csv", index=False)
+    standard_life_table.to_csv(OUT_DIR / "standard_life_table.csv", index=False)
 
     print("\nWrote:")
     for name, df in [
         ("relative_risks", rr),
         ("mortality", mort),
         ("population", pop),
-        ("life_table", life),
-        ("gbd_reference_life_table", gbd_reference_life_table),
+        ("local_life_table", local_life_table),
+        ("standard_life_table", standard_life_table),
     ]:
         print(f"  {name}.csv: {len(df)} rows")
 

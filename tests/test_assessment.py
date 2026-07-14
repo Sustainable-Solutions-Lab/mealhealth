@@ -40,10 +40,10 @@ def test_unknown_country_raises():
 def test_empty_meal_zero_effect(mode, age):
     r = mh.assess_meal({}, 0.0, "USA", mode=mode, age=age)
     assert r.f == pytest.approx(1.0)
-    assert r.delta_yll_total == pytest.approx(0.0, abs=1e-9)
+    assert r.delta_yll_local_total == pytest.approx(0.0, abs=1e-9)
     assert r.delta_yll_standard_total == pytest.approx(0.0, abs=1e-9)
     for c in r.causes.values():
-        assert c.paf == pytest.approx(0.0, abs=1e-12)
+        assert c.paf_local == pytest.approx(0.0, abs=1e-12)
         assert c.delta_yll_standard == pytest.approx(0.0, abs=1e-9)
 
 
@@ -52,11 +52,13 @@ def test_omitted_omega3_preserves_existing_assessment():
     omitted = mh.assess_meal(**kwargs)
     explicit_none = mh.assess_meal(**kwargs, seafood_omega3_mg=None)
     assert "omega3" not in omitted.exposure
-    assert "omega3" not in omitted.risk_attribution
-    assert explicit_none.delta_yll_total == pytest.approx(omitted.delta_yll_total)
+    assert "omega3" not in omitted.risk_attribution_local
+    assert explicit_none.delta_yll_local_total == pytest.approx(
+        omitted.delta_yll_local_total
+    )
     # Checked against the pre-nutrient implementation: omission must leave the
     # food-group-only calculation numerically unchanged.
-    assert omitted.delta_yll_total == pytest.approx(43490.50936429071)
+    assert omitted.delta_yll_local_total == pytest.approx(43490.50936429071)
 
 
 # --------------------------------------------------------------------------
@@ -70,18 +72,18 @@ def test_healthy_meal_gains_years_usa():
         meal_kcal=500,
         country="USA",
     )
-    assert r.delta_yll_total > 0  # protective groups -> years gained
-    assert r.delta_yll_standard_total > r.delta_yll_total
+    assert r.delta_yll_local_total > 0  # protective groups -> years gained
+    assert r.delta_yll_standard_total > r.delta_yll_local_total
     for c in ["CHD", "Stroke", "T2DM"]:
-        assert r.causes[c].paf >= -1e-9
+        assert r.causes[c].paf_local >= -1e-9
 
 
 def test_unhealthy_meal_loses_years_usa():
     r = mh.assess_meal(
         {"red_meat": 150, "processed_meat": 60}, meal_kcal=650, country="USA"
     )
-    assert r.delta_yll_total < 0  # lots of meat -> years lost
-    assert r.causes["CRC"].paf < 0
+    assert r.delta_yll_local_total < 0  # lots of meat -> years lost
+    assert r.causes["CRC"].paf_local < 0
 
 
 def test_individual_meat_meal_loses_years_usa():
@@ -92,11 +94,11 @@ def test_individual_meat_meal_loses_years_usa():
         mode="age",
         age=45,
     )
-    assert r.delta_yll_total < 0
+    assert r.delta_yll_local_total < 0
     # marginal per-meal attribution is tiny and same sign
     pm = mh.per_meal_marginal(r)
     assert pm < 0
-    assert abs(pm) < abs(r.delta_yll_total)
+    assert abs(pm) < abs(r.delta_yll_local_total)
 
 
 def test_population_vs_individual_scale():
@@ -106,16 +108,18 @@ def test_population_vs_individual_scale():
     meal = {"red_meat": 120, "processed_meat": 40}
     rp = mh.assess_meal(meal, 600, "USA", mode="population")
     ri = mh.assess_meal(meal, 600, "USA", mode="age", age=50)
-    assert (rp.delta_yll_total < 0) == (ri.delta_yll_total < 0)
+    assert (rp.delta_yll_local_total < 0) == (ri.delta_yll_local_total < 0)
     # population-annual total (whole country) is far larger in magnitude
-    assert abs(rp.delta_yll_total) > abs(ri.delta_yll_total)
+    assert abs(rp.delta_yll_local_total) > abs(ri.delta_yll_local_total)
 
 
 def test_seafood_omega3_improves_chd():
     omitted = mh.assess_meal({}, 500, "USA")
     supplied = mh.assess_meal({}, 500, "USA", seafood_omega3_mg=500)
-    assert supplied.causes["CHD"].paf > omitted.causes["CHD"].paf
-    assert supplied.risk_attribution["omega3"] > 0
+    assert supplied.causes["CHD"].paf_local > omitted.causes["CHD"].paf_local
+    assert supplied.causes["CHD"].paf_standard > omitted.causes["CHD"].paf_standard
+    assert supplied.risk_attribution_local["omega3"] > 0
+    assert supplied.risk_attribution_standard["omega3"] > 0
     expected = supplied.f * supplied.baseline_exposure["omega3"] + 0.500
     assert supplied.exposure["omega3"] == pytest.approx(expected)
 
@@ -124,8 +128,10 @@ def test_explicit_zero_omega3_is_not_omission():
     omitted = mh.assess_meal({}, 500, "USA")
     zero = mh.assess_meal({}, 500, "USA", seafood_omega3_mg=0.0)
     assert "omega3" in zero.exposure
-    assert zero.causes["CHD"].paf < omitted.causes["CHD"].paf
-    assert zero.risk_attribution["omega3"] < 0
+    assert zero.causes["CHD"].paf_local < omitted.causes["CHD"].paf_local
+    assert zero.causes["CHD"].paf_standard < omitted.causes["CHD"].paf_standard
+    assert zero.risk_attribution_local["omega3"] < 0
+    assert zero.risk_attribution_standard["omega3"] < 0
 
 
 @pytest.mark.parametrize("value", [-1.0, float("nan"), float("inf"), -float("inf")])
@@ -145,13 +151,17 @@ def test_omega3_paf_matches_curve_knot_handcalc(mode, age):
         {}, 0.0, "USA", mode=mode, age=age, seafood_omega3_mg=omega3_mg
     )
     if mode == "population":
-        log_base = _population_log_rr(curves, burden, "omega3", "CHD", baseline)
-        log_target = _population_log_rr(curves, burden, "omega3", "CHD", target)
+        log_base = _population_log_rr(
+            curves, burden, "omega3", "CHD", baseline, life_table="local"
+        )
+        log_target = _population_log_rr(
+            curves, burden, "omega3", "CHD", target, life_table="local"
+        )
     else:
         log_base = curves.log_rr("omega3", "CHD", "60-64", baseline)
         log_target = curves.log_rr("omega3", "CHD", "60-64", target)
     expected_paf = 1.0 - math.exp(log_target - log_base)
-    assert result.causes["CHD"].paf == pytest.approx(expected_paf)
+    assert result.causes["CHD"].paf_local == pytest.approx(expected_paf)
 
 
 # --------------------------------------------------------------------------
@@ -165,22 +175,33 @@ def test_attribution_sums_to_total():
         meal_kcal=600,
         country="USA",
     )
-    assert sum(r.risk_attribution.values()) == pytest.approx(
-        r.delta_yll_total, rel=1e-6
+    assert sum(r.risk_attribution_local.values()) == pytest.approx(
+        r.delta_yll_local_total, rel=1e-6
     )
     assert sum(r.risk_attribution_standard.values()) == pytest.approx(
         r.delta_yll_standard_total, rel=1e-6
     )
 
 
+def test_explicit_local_names_alias_backward_compatible_names():
+    result = mh.assess_meal({"vegetables": 200}, 300, "USA")
+    assert result.delta_yll_local_total == result.delta_yll_total
+    assert result.risk_attribution_local is result.risk_attribution
+    for cause in result.causes.values():
+        assert cause.paf_local == cause.paf
+        assert cause.delta_yll_local == cause.delta_yll
+        assert cause.rr_baseline_local == cause.rr_baseline
+        assert cause.rr_meal_local == cause.rr_meal
+
+
 def test_relative_only_matches_full_paf():
     meal = {"red_meat": 120, "vegetables": 150}
     full = mh.assess_meal(meal, 500, "USA")
     rel = mh.assess_meal(meal, 500, "USA", relative_only=True)
-    assert rel.delta_yll_total == pytest.approx(0.0)
+    assert rel.delta_yll_local_total == pytest.approx(0.0)
     assert rel.delta_yll_standard_total == pytest.approx(0.0)
     for c in full.causes:
-        assert rel.causes[c].paf == pytest.approx(full.causes[c].paf)
+        assert rel.causes[c].paf_local == pytest.approx(full.causes[c].paf_local)
         assert rel.causes[c].delta_yll_standard == pytest.approx(0.0)
 
 
@@ -189,7 +210,7 @@ def test_processed_meat_toggle():
     with_pm = mh.assess_meal(meal, 400, "USA")
     without_pm = mh.assess_meal(meal, 400, "USA", include_processed_meat=False)
     # excluding processed meat removes its (harmful) contribution
-    assert with_pm.delta_yll_total < without_pm.delta_yll_total
+    assert with_pm.delta_yll_local_total < without_pm.delta_yll_local_total
     assert "processed_meat" not in without_pm.exposure
 
 
@@ -212,11 +233,13 @@ def test_population_log_rr_reduces_to_single_age():
     burden = CountryBurden("USA")
     curves = RelativeRiskCurves()
     # force all YLL weight onto one age band
-    for key in burden._age_weights:
-        burden._age_weights[key] = 0.0
-    burden._age_weights[("CHD", "60-64")] = 1.0
+    for key in burden._age_weights_local:
+        burden._age_weights_local[key] = 0.0
+    burden._age_weights_local[("CHD", "60-64")] = 1.0
     direct = curves.log_rr("red_meat", "CHD", "60-64", 100.0)
-    weighted = _population_log_rr(curves, burden, "red_meat", "CHD", 100.0)
+    weighted = _population_log_rr(
+        curves, burden, "red_meat", "CHD", 100.0, life_table="local"
+    )
     assert weighted == pytest.approx(direct)
 
 
@@ -229,8 +252,10 @@ def test_usa_baseline_burden_reasonable():
     b = CountryBurden("USA")
     # US total YLL for CHD should be in the millions of years (deaths ~ 4/1000
     # at older ages x large older population x ~15-20 yr life exp).
-    assert 1e6 < b.total_yll("CHD") < 5e7
-    assert b.total_yll("CHD", standard=True) > b.total_yll("CHD")
+    assert 1e6 < b.total_yll("CHD", life_table="local") < 5e7
+    assert b.total_yll("CHD", life_table="standard") > b.total_yll(
+        "CHD", life_table="local"
+    )
     # baseline calories ~2400 kcal
     assert 1800 < b.baseline_kcal < 3200
     # red + processed meat split sums to the combined red-meat intake ~66.6 g/day
@@ -249,8 +274,8 @@ def test_missing_country_nutrient_baseline_raises(monkeypatch):
         CountryBurden("USA")
 
 
-def test_gbd_reference_life_table_values():
-    lt = data.gbd_reference_life_table()
+def test_standard_life_table_values():
+    lt = data.standard_life_table()
     assert len(lt) == 21
     ex = dict(lt[["age", "ex"]].itertuples(index=False, name=None))
     assert ex["<1"] == pytest.approx(89.95803974533831)

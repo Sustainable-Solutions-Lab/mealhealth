@@ -59,12 +59,12 @@ the 15 adult age groups and both sexes with WPP 2020 weights.
 `age, country, population` — UN WPP population by age band, 2020 (includes the
 `all-a` total row).
 
-## `life_table.csv`
+## `local_life_table.csv`
 `country, age, lx, ex` — UN WPP abridged life table (both sexes), survivors
 `lx` (radix 100000) and remaining life expectancy `ex` by age band; per country
 with World fallback where unavailable.
 
-## `gbd_reference_life_table.csv`
+## `standard_life_table.csv`
 `age, ex` — adapted from the GBD 2023 theoretical minimum-risk life table
 (TMRLT), published by IHME as
 `IHME_GBD_2023_DEMOGRAPHICS_1950_2023_TMRLT_Y2025M06D09.CSV` in the GBD 2023
