@@ -80,6 +80,17 @@ Three curated tables under `tools/reference/` restore the rest:
   colorectal cancer). These are calibrated on **unprocessed** red meat, which is
   the right basis because processed meat is modelled separately. The
   Burden-of-Proof red-meat curve is used only for its exposure grid.
+||||||| parent of 44c4a03 (Prototype sodium mean-shift runtime)
+Run `python tools/build_baseline_nutrients_from_gbd.py`. It selects 2020 and
+the 15 adult age groups, identifies national GBD locations through the
+cause-specific mortality input, and weights every age-sex exposure cell with
+WPP 2020 male/female population. WPP's 95–99 and 100+ groups are folded into
+GBD's 95+ group. The output retains mean exposure in g/day; uncertainty bounds
+are validated but not aggregated because exposure uncertainty is not propagated
+by the model. All 175 package countries are direct except French Guiana, which
+uses the documented `GUF → FRA` proxy. The staged sodium file is checksum-
+validated but remains inactive pending a dietary-intake-to-urinary-excretion
+model.
 
 Processed meat is taken directly from its own GBD 2023 Burden-of-Proof curves
 (CHD/type 2 diabetes/colorectal cancer; there is no ischemic-stroke curve),
@@ -162,6 +173,21 @@ aggregated, since the model does not propagate exposure uncertainty. All 175
 package countries are direct except French Guiana, which uses the documented
 `GUF → FRA` proxy. The staged sodium file is checksum-validated but stays
 inactive, pending a dietary-intake-to-urinary-excretion model.
+
+### Sodium-to-SBP preparatory reference
+
+Sodium is not yet exposed by the public API. Its reviewed response coefficients
+are pinned separately in `tools/reference/sodium_to_sbp.json`, with the native
+published units retained beside the canonical mm Hg per g/day urinary-sodium
+values. `tools/validate_sodium_coefficients.py` checks every conversion and can
+also verify the reviewed source-file hashes with `--source-dir`.
+
+The primary response is from Filippini et al. (2021), with transport
+sensitivities from its hypertension subgroups, Huang et al. (2020), and the
+GBD-lineage model in Mozaffarian et al. (2014). The reference artifact is an
+author-curated transcription, not redistributed article content. Exact source
+filenames, DOI identifiers, locations within each article, and SHA-256 digests
+are stored in the artifact.
 
 ## Baseline diet
 

@@ -29,3 +29,10 @@ path = "tools/reference/**.csv"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Koen van Greevenbroek"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+# Human-readable, source-pinned sodium coefficient reference artifact.
+path = "tools/reference/**.json"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Koen van Greevenbroek"
+SPDX-License-Identifier = "CC-BY-4.0"
