@@ -37,7 +37,8 @@ class FakeBurden:
 
     def __init__(self):
         self.death_rate = {("CHD", "40-44"): 0.002, ("CHD", "45-49"): 0.004}
-        self.ex = {"40-44": 40.0, "45-49": 35.0}
+        self.local_ex = {"40-44": 40.0, "45-49": 35.0}
+        self.standard_ex = {"40-44": 50.0, "45-49": 45.0}
         self._surv = {"40-44": 1.0, "45-49": 0.9}
 
     def conditional_survival(self, age, a0_bucket):
@@ -67,8 +68,10 @@ def test_individual_yll_matches_hand_calc():
         1.0 * (0.002 * 5.0) * 40.0  # 40-44 band
         + 0.9 * (0.004 * 5.0) * 35.0  # 45-49 band
     )
-    assert causes["CHD"].paf == pytest.approx(paf)
-    assert causes["CHD"].delta_yll == pytest.approx(expected)
+    assert causes["CHD"].paf_local == pytest.approx(paf)
+    assert causes["CHD"].delta_yll_local == pytest.approx(expected)
+    expected_standard = paf * (1.0 * (0.002 * 5.0) * 50.0 + 0.9 * (0.004 * 5.0) * 45.0)
+    assert causes["CHD"].delta_yll_standard == pytest.approx(expected_standard)
     assert expected < 0  # eating more red meat loses years
 
 
@@ -87,5 +90,6 @@ def test_relative_only_individual_zeroes_yll_keeps_paf():
     causes = _assess_individual(
         FakeCurves(), FakeBurden(), diet, ("red_meat",), 40.0, relative_only=True
     )
-    assert causes["CHD"].delta_yll == 0.0
-    assert causes["CHD"].paf == pytest.approx(1.0 - 1.3 / 1.1)
+    assert causes["CHD"].delta_yll_local == 0.0
+    assert causes["CHD"].delta_yll_standard == 0.0
+    assert causes["CHD"].paf_local == pytest.approx(1.0 - 1.3 / 1.1)

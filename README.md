@@ -28,7 +28,8 @@ result = mh.assess_meal(
     seafood_omega3_mg=250,
 )
 print(result.summary())
-print("Total ΔYLL:", result.delta_yll_total)        # > 0 ⇒ years gained
+print("Local ΔYLL:", result.delta_yll_local_total)  # > 0 ⇒ years gained
+print("GBD-standard ΔYLL:", result.delta_yll_standard_total)
 print("By cause:", result.delta_paf_total)            # per-cause % risk change
 ```
 

@@ -18,14 +18,19 @@ Outputs (schemas documented in ``src/mealhealth/data/DATA_PROVENANCE.md``):
 - ``mortality.csv``       GBD 2023 cause-specific death rates:
                           age, cause, country, death_rate_per_1000
 - ``population.csv``      UN WPP population by age: age, country, population
-- ``life_table.csv``      UN WPP abridged life table: country, age, lx, ex
+- ``local_life_table.csv``
+                          UN WPP abridged life table: country, age, lx, ex
+- ``standard_life_table.csv``
+                          GBD 2023 theoretical minimum-risk life expectancy:
+                          age, ex
 
 Raw inputs live under ``data/raw/`` (see ``docs/data_sources.md`` for how to
 obtain each one). The two UN WPP files and the GBD 2023 Burden-of-Proof RR
 curves are fetched automatically; the GBD 2023 cause-specific death-rate CSV
-requires a (free) IHME account and must be downloaded manually beforehand. The
-relative-risk age structure and TMRELs come from curated tables under
-``tools/reference/`` (see ``tools/generate_rr_age_attenuation.py``).
+and theoretical minimum-risk life table require a (free) IHME account and must
+be downloaded manually beforehand. The relative-risk age structure and TMRELs
+come from curated tables under ``tools/reference/`` (see
+``tools/generate_rr_age_attenuation.py``).
 
 The *baseline diet* (``baseline_intake.csv``, ``baseline_calories.csv``) is a
 separate dataset and is **not** built here — see
@@ -62,6 +67,9 @@ REFERENCE_YEAR = 2020
 
 # Raw inputs (placed under data/raw/; see docs/data_sources.md).
 GBD_MORTALITY_CSV = RAW_DIR / f"IHME-GBD_2023-death-rates-{REFERENCE_YEAR}.csv"
+GBD_REFERENCE_LIFE_TABLE_CSV = (
+    RAW_DIR / "IHME_GBD_2023_DEMOGRAPHICS_1950_2023_TMRLT_Y2025M06D09.CSV"
+)
 WPP_POPULATION_GZ = RAW_DIR / "WPP_population.csv.gz"
 WPP_LIFE_TABLE_GZ = RAW_DIR / "WPP_life_table.csv.gz"
 # Cached GBD 2023 Burden-of-Proof dose-response curves (fetched automatically,
@@ -194,10 +202,11 @@ AGE_BUCKETS = [
 def _ensure_raw_downloads() -> None:
     """Download the public UN WPP files into data/raw/ when missing.
 
-    The GBD 2023 cause-specific death-rate CSV requires a (free) IHME account
-    and cannot be auto-downloaded; a clear error points the developer at the
-    acquisition guide. The GBD 2023 relative-risk curves are fetched separately
-    from the Burden-of-Proof tool (no login) by :func:`_fetch_bop_curves`.
+    The GBD 2023 cause-specific death-rate CSV and theoretical minimum-risk life
+    table require a (free) IHME account and cannot be auto-downloaded; a clear
+    error points the developer at the acquisition guide. The GBD 2023
+    relative-risk curves are fetched separately from the Burden-of-Proof tool
+    (no login) by :func:`_fetch_bop_curves`.
     """
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     for path, url in (
@@ -209,10 +218,16 @@ def _ensure_raw_downloads() -> None:
         print(f"Downloading {path.name} from UN WPP ...")
         urllib.request.urlretrieve(url, path)  # noqa: S310 (trusted UN URL)
 
-    if not GBD_MORTALITY_CSV.exists():
+    missing_manual = [
+        path
+        for path in (GBD_MORTALITY_CSV, GBD_REFERENCE_LIFE_TABLE_CSV)
+        if not path.exists()
+    ]
+    if missing_manual:
+        paths = "\n".join(f"  {path}" for path in missing_manual)
         raise FileNotFoundError(
-            "Missing IHME GBD raw input (requires a free IHME account; see "
-            f"docs/data_sources.md for how to download it):\n  {GBD_MORTALITY_CSV}"
+            "Missing IHME GBD raw input(s). These require a free IHME account; "
+            "see docs/data_sources.md for download instructions:\n" + paths
         )
 
 
@@ -778,7 +793,7 @@ def _normalize_wpp_age(label: object) -> str | None:
     return None
 
 
-def build_life_table(countries: set[str]) -> pd.DataFrame:
+def build_local_life_table(countries: set[str]) -> pd.DataFrame:
     """Per-country abridged life table (lx survivors, ex) for both sexes.
 
     Falls back to the World life table for countries WPP lacks individually.
@@ -843,6 +858,54 @@ def build_life_table(countries: set[str]) -> pd.DataFrame:
 
 
 # --------------------------------------------------------------------------
+# GBD theoretical minimum-risk reference life table
+# --------------------------------------------------------------------------
+
+
+def build_standard_life_table() -> pd.DataFrame:
+    """Adapt the GBD 2023 TMRLT to the model's abridged age buckets.
+
+    The upstream table gives remaining life expectancy at exact age boundaries
+    through age 110. The model's final band is 95+, so its value is the
+    upstream life expectancy at the lower boundary, age 95, consistently with
+    the other abridged bands.
+    """
+    raw = pd.read_csv(GBD_REFERENCE_LIFE_TABLE_CSV)
+    required_columns = {"Age", "Life Expectancy"}
+    missing_columns = required_columns - set(raw.columns)
+    if missing_columns:
+        raise ValueError(
+            f"{GBD_REFERENCE_LIFE_TABLE_CSV.name} is missing columns: "
+            f"{sorted(missing_columns)}"
+        )
+
+    table = raw[["Age", "Life Expectancy"]].copy()
+    table["Age"] = pd.to_numeric(table["Age"], errors="raise")
+    table["Life Expectancy"] = pd.to_numeric(table["Life Expectancy"], errors="raise")
+    if table["Age"].duplicated().any():
+        duplicates = sorted(table.loc[table["Age"].duplicated(), "Age"].tolist())
+        raise ValueError(
+            f"{GBD_REFERENCE_LIFE_TABLE_CSV.name} has duplicate ages: {duplicates}"
+        )
+
+    age_starts = [0, 1, *range(5, 100, 5)]
+    indexed = table.set_index("Age")["Life Expectancy"]
+    missing_ages = [age for age in age_starts if age not in indexed.index]
+    if missing_ages:
+        raise ValueError(
+            f"{GBD_REFERENCE_LIFE_TABLE_CSV.name} is missing required age "
+            f"boundaries: {missing_ages}"
+        )
+
+    ex = indexed.loc[age_starts].to_numpy(dtype=float)
+    if not np.isfinite(ex).all() or (ex <= 0).any():
+        raise ValueError(
+            f"{GBD_REFERENCE_LIFE_TABLE_CSV.name} has invalid life expectancy values"
+        )
+    return pd.DataFrame({"age": AGE_BUCKETS, "ex": ex})
+
+
+# --------------------------------------------------------------------------
 # Driver
 # --------------------------------------------------------------------------
 
@@ -857,16 +920,20 @@ def main() -> None:
     mort = build_mortality()
     print("Building population.csv ...")
     pop = build_population()
+    print("Building standard_life_table.csv ...")
+    standard_life_table = build_standard_life_table()
 
     # The baseline diet (a separate, bundled dataset) defines the country
     # universe; every diet country must have complete burden inputs.
     baseline_intake = pd.read_csv(OUT_DIR / "baseline_intake.csv")
     diet_countries = set(baseline_intake["country"])
 
-    print("Building life_table.csv ...")
-    life = build_life_table(diet_countries)
+    print("Building local_life_table.csv ...")
+    local_life_table = build_local_life_table(diet_countries)
 
-    complete = set(mort["country"]) & set(pop["country"]) & set(life["country"])
+    complete = (
+        set(mort["country"]) & set(pop["country"]) & set(local_life_table["country"])
+    )
     missing = diet_countries - complete
     if missing:
         raise RuntimeError(
@@ -879,20 +946,22 @@ def main() -> None:
     keep = diet_countries
     mort = mort[mort["country"].isin(keep)]
     pop = pop[pop["country"].isin(keep)]
-    life = life[life["country"].isin(keep)]
+    local_life_table = local_life_table[local_life_table["country"].isin(keep)]
     print(f"Countries with complete data: {len(keep)}")
 
     rr.to_csv(OUT_DIR / "relative_risks.csv", index=False)
     mort.to_csv(OUT_DIR / "mortality.csv", index=False)
     pop.to_csv(OUT_DIR / "population.csv", index=False)
-    life.to_csv(OUT_DIR / "life_table.csv", index=False)
+    local_life_table.to_csv(OUT_DIR / "local_life_table.csv", index=False)
+    standard_life_table.to_csv(OUT_DIR / "standard_life_table.csv", index=False)
 
     print("\nWrote:")
     for name, df in [
         ("relative_risks", rr),
         ("mortality", mort),
         ("population", pop),
-        ("life_table", life),
+        ("local_life_table", local_life_table),
+        ("standard_life_table", standard_life_table),
     ]:
         print(f"  {name}.csv: {len(df)} rows")
 
