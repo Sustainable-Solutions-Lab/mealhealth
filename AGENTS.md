@@ -87,8 +87,10 @@ The baseline diet (`baseline_intake.csv`, `baseline_calories.csv`) is a separate
 bundled dataset; its committed CSVs are canonical and need no regeneration.
 `tools/baseline_diet_from_glade.py` is a **temporary** builder sourcing it from
 the **GLADE** project (the Global Land, Agriculture, Diet and Emissions model)
-until the dataset is published on Zenodo — the only place the project still
-references GLADE.
+until the baseline diet itself is published on Zenodo — the only place the
+project still references GLADE. GLADE is still needed for the *reconciled*
+intake table; the underlying GDD-IA data is itself published and CC-BY-4.0
+(Springmann 2026, doi:10.1038/s43016-026-01388-z).
 
 The seafood EPA+DHA baseline (`baseline_nutrients.csv`) is independently built
 from the dietary files in the official GBD 2023 Risk Exposure Estimates

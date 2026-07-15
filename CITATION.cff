@@ -6,7 +6,7 @@ cff-version: 1.2.0
 title: "mealhealth: a healthiness metric for a meal"
 message: >-
   If you use this software, please cite it and the underlying data sources
-  (GBD/IHME, the Global Dietary Database, and UN World Population Prospects;
+  (GBD/IHME, GDD-IA (Springmann 2026), and UN World Population Prospects;
   see docs/data_sources.md).
 type: software
 authors:
@@ -15,3 +15,28 @@ authors:
 license: GPL-3.0-or-later
 repository-code: "https://github.com/Sustainable-Solutions-Lab/mealhealth"
 version: "0.1.0"
+references:
+  - type: article
+    title: >-
+      Global dietary estimates for conducting health, environmental and
+      economic impact assessments
+    authors:
+      - family-names: Springmann
+        given-names: Marco
+    journal: "Nature Food"
+    year: 2026
+    doi: "10.1038/s43016-026-01388-z"
+    notes: >-
+      GDD-IA (Global Dietary Database for Impact Assessments) — source of the
+      bundled per-country baseline diet. Dataset: 10.5281/zenodo.20818140
+      (CC-BY-4.0).
+  - type: data
+    title: >-
+      Global dietary estimates for conducting health, environmental and
+      economic impact assessments (GDD-IA)
+    authors:
+      - family-names: Springmann
+        given-names: Marco
+    year: 2026
+    doi: "10.5281/zenodo.20818140"
+    license: CC-BY-4.0

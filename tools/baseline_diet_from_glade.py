@@ -15,11 +15,14 @@ from public raw sources), the baseline diet is a *derived research product*. It
 is currently produced from the sibling **GLADE** project (the Global Land,
 Agriculture, Diet and Emissions model) — its processed
 dietary intake (GDD-IA / NHANES, with the unprocessed/processed red-meat split
-from the GDD-IA processed fraction). That dataset is openly available during
-development but is **not** part of ``mealhealth``'s self-contained pipeline.
+from the GDD-IA processed fraction). GDD-IA itself is now published and openly
+licensed (Springmann 2026, https://doi.org/10.1038/s43016-026-01388-z; dataset
+CC-BY-4.0 at https://doi.org/10.5281/zenodo.20818140), but GLADE is still needed
+here for the *reconciled* intake table (NHANES override, GBD anchoring, model
+mass basis), which is not part of that record.
 
-  TODO: replace this tool with a download from the published Zenodo dataset
-  once available (set ``BASELINE_DIET_SOURCE`` / ``docs/data_sources.md``).
+  TODO: replace this tool with a download from a published Zenodo deposit of
+  the baseline diet itself, once available (see ``docs/data_sources.md``).
 
 The committed ``baseline_intake.csv`` / ``baseline_calories.csv`` are the
 canonical artifacts; this script only needs to be re-run if the baseline diet
@@ -63,10 +66,17 @@ def _gdd_processed_fraction() -> pd.Series:
     Uses GDD-IA 'prcd' meat categories (baseline strata: all-ages, both sexes,
     all residences, mean), which natively separate processed from unprocessed
     red meat.
+
+    GLADE retrieves this CSV from the GDD-IA Zenodo record; run its
+    ``download_gdd_ia_intake`` rule if the file is absent.
     """
-    grams = pd.read_csv(
-        GLADE / "data" / "manually_downloaded" / "GDD-IA-intake_grams_2020.csv"
-    )
+    path = GLADE / "data" / "downloads" / "gdd_ia" / "intake_grams_2020.csv"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"GDD-IA intake CSV not found at {path}. In a GLADE checkout, run:\n"
+            "    pixi run snakemake data/downloads/gdd_ia/intake_grams_2020.csv"
+        )
+    grams = pd.read_csv(path)
     mask = (
         (grams["age"] == "all-a")
         & (grams["sex"] == "BTH")

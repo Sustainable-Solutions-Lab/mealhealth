@@ -62,7 +62,8 @@ print("By cause:", result.delta_paf_total)      # per-cause % risk change
 
 The **source code** is GPL-3.0-or-later, but the **bundled data** carries a
 **non-commercial** restriction — it comes from IHME GBD. The other sources (UN
-World Population Prospects, the GDD-IA dietary data, NHANES) are more permissive.
+World Population Prospects, the GDD-IA dietary data (CC BY 4.0), NHANES) are
+more permissive.
 The distributed package *as a whole* is therefore for **non-commercial research,
 teaching and private study, with attribution**. See
 [Data sources](data_sources.md#licensing) for the details.
