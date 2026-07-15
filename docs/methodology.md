@@ -15,10 +15,10 @@ the same total calories), how would their diet-attributable years of life lost
 means years **lost**.
 
 All quantities are **relative to the country's baseline diet**, so the PAF below
-carries no theoretical-minimum-risk (TMREL) reference term. (The TMREL still
-enters indirectly: each bundled dose–response curve is clipped at its GBD 2023
-TMREL during data preparation, so intake past the plateau yields no further
-benefit. See [Data sources](data_sources.md).)
+does not compare the meal directly with a TMREL. Dietary curves are clipped at
+their GBD 2023 TMREL during preparation. Sodium is the exception: its uncertain
+urinary-sodium TMREL is integrated explicitly in the mediator calculation. See
+[Data sources](data_sources.md).
 
 ```{figure} _static/method_overview.svg
 :alt: A meal is substituted into the country baseline diet at equal calories; the resulting change in each food group's intake is read off its risk curve and turned into a change in years of life.
@@ -55,11 +55,44 @@ are **not** entered as food groups; they influence the result only through
 ### Nutrient factors
 
 Seafood omega-3 is supplied as EPA + DHA in mg per meal and converted to g/day
-at the API boundary. It then uses the same substitution, RR, PAF, ΔYLL, and
-attribution machinery as food-group risks. Unlike a missing food-group key,
-which means zero grams, an omitted nutrient (`None`) means the factor is not
-assessed and is removed entirely. An explicit `0.0` is a measured zero: the
-meal adds none but still displaces the country's baseline omega-3 exposure.
+at the API boundary. Sodium is supplied as elemental sodium in mg per meal and
+converted through the mediator described below. Unlike a missing food-group
+key, which means zero grams, an omitted nutrient (`None`) is not assessed. An
+explicit `0.0` is a measured zero: the meal adds none but still displaces the
+country baseline.
+
+### Sodium mean-shift prototype
+
+For country `c`, adult age `a`, and sex `s`, let `u0` be GBD mean 24-hour
+urinary sodium and `b0` mean systolic blood pressure. With meal sodium `m` in
+dietary g/day and baseline scale `f`, the substituted urinary mean is
+
+```
+u1 = f · u0 + 0.928 · m
+```
+
+The recovery fraction 0.928 and central chronic response of 2.42 mm Hg per
+g/day urinary sodium are taken from the reviewed sodium-to-SBP references. GBD
+specifies a sodium TMREL uniformly distributed from 1 to 5 g/day. The model
+does not replace that interval with its 3 g/day midpoint: it deterministically
+integrates the risk ratio over `t ~ Uniform(1, 5)`, using
+`u_eff = max(u, t)`.
+
+For each TMREL value, the mediated SBP change is
+
+```
+Δb(t) = 2.42 · [max(u1, t) - max(u0, t)]
+q_d(t) = RR_SBP,d,a(b0 + Δb(t)) / RR_SBP,d,a(b0)
+```
+
+and stomach cancer uses its direct urinary-sodium curve in the analogous
+ratio. The stratum sodium ratio is the uniform-TMREL mean of `q_d(t)`. This is
+a deliberately simple **mean-field approximation**: evaluating a nonlinear RR
+curve at mean SBP is generally not the same as averaging risk over individual
+SBP. The result has no sodium uncertainty interval and must not be interpreted
+as an individualized prediction. A future implementation can replace this
+step with within-stratum sodium/SBP distributions and coherent uncertainty
+draws without changing the public nutrient input.
 
 ## 2. Relative risk and PAF
 
@@ -89,7 +122,8 @@ it.
 ## 3. From PAF to ΔYLL — local and standard anchors
 
 ```
-ΔYLL_d(x) = PAF_d(x) · Y_d           Total ΔYLL = Σ_d ΔYLL_d
+ΔYLL_d(x) = Σ_{a,s} YLL_{c,d,a,s} · PAF_{d,a,s}(x)
+Total ΔYLL = Σ_d ΔYLL_d
 ```
 
 Every assessment reports two versions:
@@ -108,20 +142,20 @@ choice.
 
 ### (a) Population mode
 
-A population-level **annual** quantity. The relative risk
-uses the **YLL-weighted effective curve** across adult age groups:
+A population-level **annual** quantity evaluated on exact country × age × sex
+burden strata:
 
 ```
-log RR^eff_{r,d}(x) = Σ_a w_{a,d} · log RR_{r,d,a}(x)
-w_{a,d}             = YLL_{c,d,a} / Σ_a YLL_{c,d,a}
+YLL_{c,d,a,s} = m_{c,d,a,s} · P_{c,a,s} · e_{c,a,s}
+PAF_{d,a,s}   = 1 - RR_{d,a,s}(x) / RR_{d,a,s}(x_base)
 ```
 
-where `YLL_{c,d,a} = m_{c,d,a} · P_{c,a} · e_a` is reconstructed from the
-cause/age death rate `m`, the age-band population `P`, and the remaining life
-expectancy `e_a`. The calculation is performed once with the country life table
-and once with the GBD reference table. Each version uses its corresponding YLL
-weights in the effective RR curve and its corresponding total cause burden
-`Y_d = Σ_a YLL_{c,d,a}`.
+The calculation is performed once with sex-specific local life expectancy and
+once with the common GBD reference life expectancy. Each reported PAF divides
+the summed change by the corresponding total observed cause YLL across all ages
+and both sexes. Food-group curves are currently sex-invariant, but retaining
+sex in burden aggregation is necessary for sodium and avoids a country-wide
+effective-RR approximation.
 
 ### (b) Median person / (c) person of given age `a0`
 
@@ -130,11 +164,13 @@ anchor. Using the age-specific RR curve at each future age, the expected change
 in remaining-lifetime YLL from cause `d` for someone currently aged `a0` is:
 
 ```
-ΔYLL_d = Σ_{a ≥ a0}  S(a | a0) · (m_{c,d,a} · n_a) · e_a · PAF_{d,a}(x)
+ΔYLL_d = Σ_s π_{c,s,a0} Σ_{a ≥ a0}
+          S_{c,s}(a | a0) · (m_{c,d,a,s} · n_a) · e_{c,a,s}
+          · PAF_{d,a,s}(x)
 ```
 
-* `S(a | a0) = l_a / l_{a0}` — probability of surviving from `a0` to age band
-  `a`, from the life-table survivorship column `l_x`.
+* `π_{c,s,a0}` is the male/female population share at the starting age.
+* `S_{c,s}(a | a0) = l_{a,s} / l_{a0,s}` is sex-specific local survival.
 * `m_{c,d,a} · n_a` — expected cause-`d` deaths in band `a` per person entering
   it (annual death rate × band width `n_a`; the open 95+ interval uses its
   remaining life expectancy as the effective width).
@@ -145,10 +181,11 @@ in remaining-lifetime YLL from cause `d` for someone currently aged `a0` is:
   with the age-specific RR curve, because the dietary effect attenuates with
   age for cardiovascular causes.
 
-Mode (b) sets `a0` to the population-weighted median adult age; mode (c) uses
-the supplied age. This is equivalent to the expected change in age at death
-from cause `d`. (The individual formula is validated against an explicit
-hand-calculation in `tests/test_individual_handcalc.py`.)
+Mode (b) sets `a0` to the combined-sex population-weighted median adult age;
+mode (c) uses the supplied age. Both are population-average results conditional
+on being alive at `a0`, not results for a person of a specified sex. The formula
+is validated against an explicit hand calculation in
+`tests/test_individual_handcalc.py`.
 
 ## 4. Single-meal attribution
 
@@ -174,14 +211,45 @@ from its own GBD curves:
 | processed meat   |  ✓  |        |  ✓   |  ✓  |
 | seafood omega-3  |  ✓  |        |      |     |
 
+Sodium has a separate mediated outcome map:
+
+| Path | Burden causes |
+|------|---------------|
+| direct urinary sodium | stomach cancer |
+| SBP → ischemic heart disease | CHD |
+| SBP → combined stroke curve | ischemic stroke and haemorrhagic stroke |
+| SBP → CKD | chronic kidney disease |
+
 "Stroke" is restricted to **ischemic** stroke (the atherosclerotic pathway diet
 acts on); the mortality data is filtered to ischemic stroke to match.
+WHO GHE publishes intracerebral and subarachnoid haemorrhage together, and its
+two chronic-kidney categories are summed. This aggregation is exact within the
+model because the component causes use the same relative-risk curve. WHO does
+not publish standalone aortic-aneurysm or peripheral-arterial-disease rates, so
+those sodium pathways are excluded instead of applying a risk curve to WHO's
+much broader residual circulatory category.
+
+### Sodium scale check
+
+Applying the implemented uniform 1–5 g/day urinary-sodium TMREL to the 2020
+baseline gives about 25,300 sodium-attributable deaths per year in the USA and
+1.35 million across the package's 175 countries. These are useful scale checks,
+not calibration targets. [Micha et al.
+(2017)](https://jamanetwork.com/journals/jama/fullarticle/2608221) estimated
+66,508 US cardiometabolic deaths in 2012, [Mozaffarian et al.
+(2014)](https://www.nejm.org/doi/full/10.1056/NEJMoa1304127) estimated 1.65
+million global cardiovascular deaths in 2010, and [GBD
+2021](https://www.healthdata.org/sites/default/files/disease_and_injury/gbd_2021/topic_pdf/risk/124.pdf)
+reported about 1.86 million global deaths. Their 2 g/day reference exposures,
+outcome sets, exposure distributions, years, and burden sources differ from
+this mean-shift prototype. The prototype should therefore report the gap, not
+tune coefficients to close it.
 
 ## 6. Relative-only fallback
 
-Where the absolute-YLL burden data cannot be used, `relative_only=True` reports
-just the per-cause `PAF_d` (the % change in diet-attributable risk). This needs
-only the RR curves and the baseline exposure, not mortality or life tables.
+`relative_only=True` reports just the per-cause PAFs and suppresses absolute
+YLL. It deliberately uses the same sex-specific burden weights as the full
+result, so it still requires bundled mortality, population, and life tables.
 
 ## Caveats
 
@@ -196,12 +264,11 @@ only the RR curves and the baseline exposure, not mortality or life tables.
   life table and is a standardized potential-life-loss measure, not a forecast
   of years that this intervention alone would realize under current local
   mortality.
-* Additional dietary risk factors (sodium, sugar-sweetened beverages) are
-  **not** modelled. GBD's sodium effect runs through a blood-pressure-mediated
-  pathway in different units, and the SSB/sugar evidence is weak; both were
-  optional "bonus" factors in the spec and are out of scope here. The
-  nutrient-factor architecture can accommodate them once suitable exposure
-  conversion and dose-response data are defined.
+* Sodium is a central mean-shift prototype. It does not propagate uncertainty
+  in baseline exposure, recovery, the sodium-to-SBP slope, or RR curves, and it
+  does not represent within-stratum sodium or SBP variation. These omissions
+  are expected to matter because the RR curves are nonlinear.
+* Sugar-sweetened beverages are not modelled.
 * Red-meat RR uses literature log-linear curves
   (Bechthold et al. 2019 for CHD/Stroke, Li et al. 2024 for T2DM,
   Chan et al. 2011 for CRC), which are calibrated on *unprocessed* red meat and

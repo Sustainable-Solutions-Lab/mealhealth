@@ -2,354 +2,209 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Vectorised numerical kernel for the sodium mediator.
-
-This module is intentionally internal to the calculation engine for now: the
-public sodium API remains gated on required external exposure and burden data.
-The initial prototype represents usual SBP as normal with draw-specific mean
-and SD.  The prepared-runtime boundary must be extended if the real-data review
-selects another family or ensemble.  Keeping the numerical kernel separate lets
-the mean-shift approximation, draw coherence, and runtime budget be validated
-with synthetic inputs before any provisional data can leak into public results.
-"""
+"""Deterministic country-age-sex mean-shift model for sodium."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import cache
-import math
 
 import numpy as np
 
+from . import data
+
+# Central values pinned and validated against tools/reference/sodium_to_sbp.json.
+# The prototype reports no sodium uncertainty interval.
+SODIUM_URINARY_RECOVERY = 0.928
+SODIUM_TMREL_LOW_G_PER_DAY = 1.0
+SODIUM_TMREL_HIGH_G_PER_DAY = 5.0
+SODIUM_TMREL_CENTRAL_G_PER_DAY = 3.0
+SODIUM_TO_SBP_MMHG_PER_G = 2.42
+
+# GBD's sodium TMREL is an interval, not a point estimate. The integral over
+# Uniform(1, 5) is split at each exposure's clipping point and evaluated with
+# deterministic Gauss-Legendre quadrature. Splitting removes quadrature error
+# at the ``max`` kinks without introducing stochastic noise.
+_TMREL_QUADRATURE_NODES, _TMREL_QUADRATURE_WEIGHTS = np.polynomial.legendre.leggauss(12)
+
+MEDIATED_CURVE_BY_CAUSE = {
+    "CHD": "CHD",
+    "Stroke": "Stroke",
+    "HaemorrhagicStroke": "Stroke",
+    "CKD": "CKD",
+}
+
 
 @dataclass(frozen=True)
-class SodiumRuntimeInputs:
-    """Aligned primitive draws for one country's sodium calculation.
+class SodiumStratumEffect:
+    """Central mean-shift result for one country-age-sex stratum."""
 
-    Arrays use ``(draw, age, sex)`` unless documented otherwise.  SBP curves
-    use a common exposure grid and have shape ``(draw, outcome, knot)``; their
-    age attenuation has shape ``(outcome, age)``.  The stomach-cancer curve is
-    age invariant and has shape ``(draw, knot)``.
+    baseline_urinary_g: float
+    meal_urinary_g: float
+    baseline_effective_g: float
+    meal_effective_g: float
+    delta_sbp_mmhg: float
+    risk_ratio: float
+
+
+class SodiumMeanShiftModel:
+    """Real-data central sodium model used by the public prototype API.
+
+    This is a mean-field approximation: each stratum is represented by its GBD
+    mean urinary sodium and mean SBP. It does not reconstruct the distribution
+    of either exposure between people. See ``docs/methodology.md``.
     """
 
-    baseline_urinary_g: np.ndarray
-    sbp_mean_mmhg: np.ndarray
-    sbp_sd_mmhg: np.ndarray
-    recovery_fraction: np.ndarray
-    sodium_tmrel_g: np.ndarray
-    sodium_to_sbp_slope: np.ndarray
-    sbp_curve_exposure_mmhg: np.ndarray
-    sbp_curve_log_rr: np.ndarray
-    sbp_age_attenuation: np.ndarray
-    mediated_outcomes: tuple[str, ...]
-    sodium_curve_exposure_g: np.ndarray
-    stomach_curve_log_rr: np.ndarray
+    def __init__(self, country: str):
+        mediator = data.baseline_mediators()
+        mediator = mediator[mediator["country"] == country]
+        if mediator.empty:
+            raise KeyError(f"No bundled sodium mediator baseline for {country!r}")
+        self.country = country
+        self.baseline_urinary_g = {
+            (row.age, row.sex): float(row.sodium_urinary_g_per_day_mean)
+            for row in mediator.itertuples(index=False)
+        }
+        self.baseline_sbp_mmhg = {
+            (row.age, row.sex): float(row.sbp_mmhg_mean)
+            for row in mediator.itertuples(index=False)
+        }
 
-    def __post_init__(self) -> None:
-        shape = self.baseline_urinary_g.shape
-        if len(shape) != 3:
-            raise ValueError("baseline_urinary_g must have shape (draw, age, sex)")
-        if shape[2] != 2:
-            raise ValueError("sodium inputs must contain exactly two sex strata")
-        for name in ("sbp_mean_mmhg", "sbp_sd_mmhg"):
-            value = np.asarray(getattr(self, name))
-            if value.shape != shape:
-                raise ValueError(f"{name} must have shape {shape}, got {value.shape}")
+        curves = data.sodium_relative_risks()
+        self.curves: dict[tuple[str, str], tuple[np.ndarray, np.ndarray]] = {}
+        for (path, cause), group in curves.groupby(["path", "curve_cause"], sort=False):
+            self.curves[(str(path), str(cause))] = (
+                group["exposure"].to_numpy(dtype=float),
+                np.log(group["rr_mean"].to_numpy(dtype=float)),
+            )
+        attenuation = data.sbp_age_attenuation()
+        self.age_attenuation = {
+            (row.curve_cause, row.age): float(row.beta)
+            for row in attenuation.itertuples(index=False)
+        }
 
-        draws, ages, _ = shape
-        for name in (
-            "recovery_fraction",
-            "sodium_tmrel_g",
-            "sodium_to_sbp_slope",
-        ):
-            value = np.asarray(getattr(self, name))
-            if value.shape != (draws,):
-                raise ValueError(
-                    f"{name} must have shape ({draws},), got {value.shape}"
+    def urinary_exposure(
+        self, age: str, sex: str, *, baseline_scale: float, meal_sodium_g: float
+    ) -> tuple[float, float]:
+        """Return baseline and substituted urinary sodium in g/day."""
+
+        baseline = self.baseline_urinary_g[(age, sex)]
+        meal = baseline_scale * baseline + SODIUM_URINARY_RECOVERY * meal_sodium_g
+        return baseline, meal
+
+    def stratum_effect(
+        self,
+        cause: str,
+        age: str,
+        sex: str,
+        *,
+        baseline_scale: float,
+        meal_sodium_g: float,
+    ) -> SodiumStratumEffect:
+        """Evaluate the central sodium risk ratio for one burden cause."""
+
+        baseline, meal = self.urinary_exposure(
+            age, sex, baseline_scale=baseline_scale, meal_sodium_g=meal_sodium_g
+        )
+        # Scalar effective values are diagnostic midpoints. Risk itself is
+        # averaged over the full uniform TMREL interval below.
+        baseline_effective = max(baseline, SODIUM_TMREL_CENTRAL_G_PER_DAY)
+        meal_effective = max(meal, SODIUM_TMREL_CENTRAL_G_PER_DAY)
+        if meal == baseline:
+            return SodiumStratumEffect(
+                baseline, meal, baseline_effective, meal_effective, 0.0, 1.0
+            )
+
+        tmrel, expectation_weights = _tmrel_quadrature(baseline, meal)
+        baseline_effective_nodes = np.maximum(baseline, tmrel)
+        meal_effective_nodes = np.maximum(meal, tmrel)
+
+        if cause == "StomachCancer":
+            base_log_rr = self._log_rr_array(
+                "sodium", "StomachCancer", baseline_effective_nodes
+            )
+            meal_log_rr = self._log_rr_array(
+                "sodium", "StomachCancer", meal_effective_nodes
+            )
+            delta_sbp = 0.0
+        else:
+            curve_cause = MEDIATED_CURVE_BY_CAUSE.get(cause)
+            if curve_cause is None:
+                return SodiumStratumEffect(
+                    baseline, meal, baseline_effective, meal_effective, 0.0, 1.0
                 )
-
-        outcomes = len(self.mediated_outcomes)
-        sbp_x = np.asarray(self.sbp_curve_exposure_mmhg)
-        sbp_y = np.asarray(self.sbp_curve_log_rr)
-        attenuation = np.asarray(self.sbp_age_attenuation)
-        sodium_x = np.asarray(self.sodium_curve_exposure_g)
-        stomach_y = np.asarray(self.stomach_curve_log_rr)
-        if sbp_x.ndim != 1 or sbp_x.size < 2:
-            raise ValueError("sbp_curve_exposure_mmhg must be a 1-D grid")
-        if sbp_y.shape != (draws, outcomes, sbp_x.size):
-            raise ValueError(
-                "sbp_curve_log_rr must have shape "
-                f"({draws}, {outcomes}, {sbp_x.size}), got {sbp_y.shape}"
+            delta_sbp_nodes = SODIUM_TO_SBP_MMHG_PER_G * (
+                meal_effective_nodes - baseline_effective_nodes
             )
-        if attenuation.shape != (outcomes, ages):
-            raise ValueError(
-                f"sbp_age_attenuation must have shape ({outcomes}, {ages}), "
-                f"got {attenuation.shape}"
+            delta_sbp = SODIUM_TO_SBP_MMHG_PER_G * (meal_effective - baseline_effective)
+            baseline_sbp = self.baseline_sbp_mmhg[(age, sex)]
+            beta = self.age_attenuation[(curve_cause, age)]
+            base_log_rr = beta * self._log_rr_array(
+                "sbp", curve_cause, np.full_like(delta_sbp_nodes, baseline_sbp)
             )
-        if sodium_x.ndim != 1 or sodium_x.size < 2:
-            raise ValueError("sodium_curve_exposure_g must be a 1-D grid")
-        if stomach_y.shape != (draws, sodium_x.size):
-            raise ValueError(
-                "stomach_curve_log_rr must have shape "
-                f"({draws}, {sodium_x.size}), got {stomach_y.shape}"
+            meal_log_rr = beta * self._log_rr_array(
+                "sbp", curve_cause, baseline_sbp + delta_sbp_nodes
             )
 
-        arrays = (
-            self.baseline_urinary_g,
-            self.sbp_mean_mmhg,
-            self.sbp_sd_mmhg,
-            self.recovery_fraction,
-            self.sodium_tmrel_g,
-            self.sodium_to_sbp_slope,
-            sbp_x,
-            sbp_y,
-            attenuation,
-            sodium_x,
-            stomach_y,
+        risk_ratio = float(
+            np.dot(expectation_weights, np.exp(meal_log_rr - base_log_rr))
         )
-        if not all(np.isfinite(np.asarray(value)).all() for value in arrays):
-            raise ValueError("sodium runtime inputs must be finite")
-        if not _strictly_increasing(sbp_x) or not _strictly_increasing(sodium_x):
-            raise ValueError("relative-risk exposure grids must be strictly increasing")
-        if (self.baseline_urinary_g < 0).any():
-            raise ValueError("baseline urinary sodium must be non-negative")
-        if (self.sbp_sd_mmhg <= 0).any():
-            raise ValueError("SBP standard deviations must be positive")
-        if ((self.recovery_fraction <= 0) | (self.recovery_fraction > 1)).any():
-            raise ValueError("urinary recovery fractions must lie in (0, 1]")
-        if (self.sodium_tmrel_g < 0).any():
-            raise ValueError("sodium TMREL draws must be non-negative")
-        if (self.sodium_to_sbp_slope <= 0).any():
-            raise ValueError("sodium-to-SBP slopes must be positive")
-        if (attenuation < 0).any():
-            raise ValueError("SBP age attenuation must be non-negative")
-
-
-@dataclass(frozen=True)
-class SodiumRuntimeResult:
-    """Draw-level outputs retained until the caller aggregates its estimand."""
-
-    baseline_urinary_g: np.ndarray
-    meal_urinary_g: np.ndarray
-    baseline_effective_g: np.ndarray
-    meal_effective_g: np.ndarray
-    delta_sbp_mmhg: np.ndarray
-    mediated_risk_ratio: np.ndarray
-    stomach_risk_ratio: np.ndarray
-
-
-@dataclass(frozen=True)
-class PreparedSodiumRuntime:
-    """Cached baseline integration for repeated meals in one country."""
-
-    inputs: SodiumRuntimeInputs
-    quadrature_order: int
-    sbp_quadrature_mmhg: np.ndarray
-    quadrature_weights: np.ndarray
-    baseline_expected_sbp_rr: np.ndarray
-    baseline_stomach_log_rr: np.ndarray
-
-
-def evaluate_sodium_mean_shift(
-    inputs: SodiumRuntimeInputs,
-    *,
-    baseline_scale: float,
-    meal_sodium_g: float,
-    quadrature_order: int = 20,
-) -> SodiumRuntimeResult:
-    """Evaluate coherent sodium risk-ratio draws for one country.
-
-    ``meal_sodium_g`` is dietary elemental sodium.  The return arrays retain
-    their draw dimension: mediated risk ratios have shape
-    ``(draw, age, sex, outcome)`` and the stomach-cancer ratios have shape
-    ``(draw, age, sex)``.  No means or quantiles are taken here.
-    """
-
-    prepared = prepare_sodium_runtime(inputs, quadrature_order=quadrature_order)
-    return evaluate_prepared_sodium(
-        prepared,
-        baseline_scale=baseline_scale,
-        meal_sodium_g=meal_sodium_g,
-    )
-
-
-def prepare_sodium_runtime(
-    inputs: SodiumRuntimeInputs, *, quadrature_order: int = 20
-) -> PreparedSodiumRuntime:
-    """Integrate and cache fixed baseline risks for one country."""
-
-    quadrature_order = _validate_quadrature_order(quadrature_order)
-    u0 = np.asarray(inputs.baseline_urinary_g)
-    nodes, weights = _normal_quadrature(quadrature_order, u0.dtype)
-    sbp = (
-        np.asarray(inputs.sbp_mean_mmhg)[..., None]
-        + np.sqrt(np.asarray(2.0, dtype=u0.dtype))
-        * np.asarray(inputs.sbp_sd_mmhg)[..., None]
-        * nodes
-    )
-    sbp_curves = np.asarray(inputs.sbp_curve_log_rr)
-    age_shape = np.asarray(inputs.sbp_age_attenuation).T[None, :, None, None, :]
-    quadrature_weights = weights[None, None, None, :, None]
-    base_log_rr = _interpolate_draw_outcome_curves(
-        inputs.sbp_curve_exposure_mmhg, sbp_curves, sbp
-    )
-    base_expected_rr = np.sum(
-        np.exp(base_log_rr * age_shape) * quadrature_weights, axis=-2
-    )
-
-    draw_axis = (slice(None), None, None)
-    tmrel = np.asarray(inputs.sodium_tmrel_g)[draw_axis]
-    u0_eff = np.maximum(u0, tmrel)
-    base_stomach_log_rr = interpolate_draw_curves(
-        inputs.sodium_curve_exposure_g,
-        np.asarray(inputs.stomach_curve_log_rr),
-        u0_eff,
-    )
-    return PreparedSodiumRuntime(
-        inputs=inputs,
-        quadrature_order=quadrature_order,
-        sbp_quadrature_mmhg=sbp,
-        quadrature_weights=quadrature_weights,
-        baseline_expected_sbp_rr=base_expected_rr,
-        baseline_stomach_log_rr=base_stomach_log_rr,
-    )
-
-
-def evaluate_prepared_sodium(
-    prepared: PreparedSodiumRuntime,
-    *,
-    baseline_scale: float,
-    meal_sodium_g: float,
-) -> SodiumRuntimeResult:
-    """Evaluate a meal using cached country baseline integrations."""
-
-    inputs = prepared.inputs
-    baseline_scale = float(baseline_scale)
-    meal_sodium_g = float(meal_sodium_g)
-    if not math.isfinite(baseline_scale) or not 0 <= baseline_scale <= 1:
-        raise ValueError("baseline_scale must be finite and lie in [0, 1]")
-    if not math.isfinite(meal_sodium_g) or meal_sodium_g < 0:
-        raise ValueError("meal_sodium_g must be finite and non-negative")
-
-    u0 = np.asarray(inputs.baseline_urinary_g)
-    draw_axis = (slice(None), None, None)
-    u1 = (
-        baseline_scale * u0
-        + np.asarray(inputs.recovery_fraction)[draw_axis] * meal_sodium_g
-    )
-    tmrel = np.asarray(inputs.sodium_tmrel_g)[draw_axis]
-    u0_eff = np.maximum(u0, tmrel)
-    u1_eff = np.maximum(u1, tmrel)
-    delta_sbp = np.asarray(inputs.sodium_to_sbp_slope)[draw_axis] * (u1_eff - u0_eff)
-
-    shifted_sbp = prepared.sbp_quadrature_mmhg + delta_sbp[..., None]
-
-    sbp_curves = np.asarray(inputs.sbp_curve_log_rr)
-    age_shape = np.asarray(inputs.sbp_age_attenuation).T[None, :, None, None, :]
-    meal_log_rr = _interpolate_draw_outcome_curves(
-        inputs.sbp_curve_exposure_mmhg, sbp_curves, shifted_sbp
-    )
-    meal_expected_rr = np.sum(
-        np.exp(meal_log_rr * age_shape) * prepared.quadrature_weights, axis=-2
-    )
-    mediated = meal_expected_rr / prepared.baseline_expected_sbp_rr
-
-    stomach_curves = np.asarray(inputs.stomach_curve_log_rr)
-    meal_stomach_log_rr = interpolate_draw_curves(
-        inputs.sodium_curve_exposure_g, stomach_curves, u1_eff
-    )
-    stomach = np.exp(meal_stomach_log_rr - prepared.baseline_stomach_log_rr)
-
-    return SodiumRuntimeResult(
-        baseline_urinary_g=u0,
-        meal_urinary_g=u1,
-        baseline_effective_g=u0_eff,
-        meal_effective_g=u1_eff,
-        delta_sbp_mmhg=delta_sbp,
-        mediated_risk_ratio=mediated,
-        stomach_risk_ratio=stomach,
-    )
-
-
-def interpolate_draw_curves(
-    exposure_grid: np.ndarray,
-    draw_log_rr: np.ndarray,
-    exposure: np.ndarray,
-) -> np.ndarray:
-    """Linearly interpolate aligned draw curves and clamp outside their grid.
-
-    ``draw_log_rr`` has shape ``(draw, knot)`` and ``exposure`` may have any
-    shape whose first dimension is the same draw dimension.  This implements
-    the existing engine's log-linear RR interpolation without a Python draw
-    loop.
-    """
-
-    y = np.asarray(draw_log_rr)
-    if y.ndim != 2:
-        raise ValueError("draw_log_rr must have shape (draw, exposure_grid.size)")
-    return _interpolate_draw_outcome_curves(exposure_grid, y[:, None, :], exposure)[
-        ..., 0
-    ]
-
-
-def _interpolate_draw_outcome_curves(
-    exposure_grid: np.ndarray,
-    draw_outcome_log_rr: np.ndarray,
-    exposure: np.ndarray,
-) -> np.ndarray:
-    """Interpolate curves shaped ``(draw, outcome, knot)`` in one batch."""
-
-    x = np.asarray(exposure_grid)
-    y = np.asarray(draw_outcome_log_rr)
-    values = np.asarray(exposure)
-    if x.ndim != 1 or x.size < 2 or not _strictly_increasing(x):
-        raise ValueError("exposure_grid must be a strictly increasing 1-D grid")
-    if y.ndim != 3 or y.shape[2] != x.size:
-        raise ValueError(
-            "draw_outcome_log_rr must have shape (draw, outcome, exposure_grid.size)"
+        return SodiumStratumEffect(
+            baseline,
+            meal,
+            baseline_effective,
+            meal_effective,
+            delta_sbp,
+            risk_ratio,
         )
-    if values.ndim < 1 or values.shape[0] != y.shape[0]:
-        raise ValueError("exposure and curve arrays must share their draw dimension")
-    if not np.isfinite(values).all() or not np.isfinite(y).all():
-        raise ValueError("curve values and evaluated exposures must be finite")
 
-    interval = np.searchsorted(x, values, side="right") - 1
-    interval = np.clip(interval, 0, x.size - 2)
-    curve_shape = (y.shape[0],) + (1,) * (values.ndim - 1) + (y.shape[1], x.size)
-    curves = y.reshape(curve_shape)
-    take = interval[..., None, None]
-    y0 = np.take_along_axis(curves, take, axis=-1)[..., 0]
-    y1 = np.take_along_axis(curves, take + 1, axis=-1)[..., 0]
-    x0 = x[interval][..., None]
-    x1 = x[interval + 1][..., None]
-    out = y0 + (values[..., None] - x0) / (x1 - x0) * (y1 - y0)
+    def weighted_exposure(
+        self,
+        population: dict[tuple[str, str], float],
+        *,
+        baseline_scale: float,
+        meal_sodium_g: float,
+    ) -> tuple[float, float]:
+        """Adult-population weighted baseline and substituted urinary means."""
 
-    edge_shape = (y.shape[0],) + (1,) * (values.ndim - 1) + (y.shape[1],)
-    low = y[:, :, 0].reshape(edge_shape)
-    high = y[:, :, -1].reshape(edge_shape)
-    return np.where(
-        values[..., None] <= x[0],
-        low,
-        np.where(values[..., None] >= x[-1], high, out),
-    )
+        baseline_total = 0.0
+        meal_total = 0.0
+        weight_total = 0.0
+        for (age, sex), baseline in self.baseline_urinary_g.items():
+            weight = population.get((sex, age), 0.0)
+            meal = baseline_scale * baseline + SODIUM_URINARY_RECOVERY * meal_sodium_g
+            baseline_total += weight * baseline
+            meal_total += weight * meal
+            weight_total += weight
+        if weight_total <= 0:
+            raise ValueError(f"No adult population weights for {self.country}")
+        return baseline_total / weight_total, meal_total / weight_total
 
-
-def _strictly_increasing(values: np.ndarray) -> bool:
-    return bool(np.all(np.diff(values) > 0))
-
-
-def _validate_quadrature_order(order: int) -> int:
-    if isinstance(order, bool) or not isinstance(order, (int, np.integer)):
-        raise ValueError("quadrature_order must be an integer")
-    if order < 2:
-        raise ValueError("quadrature_order must be at least 2")
-    return int(order)
+    def _log_rr_array(
+        self, path: str, curve_cause: str, exposure: np.ndarray
+    ) -> np.ndarray:
+        x, log_rr = self.curves[(path, curve_cause)]
+        return np.interp(exposure, x, log_rr)
 
 
-@cache
-def _normal_quadrature(order: int, dtype: np.dtype) -> tuple[np.ndarray, np.ndarray]:
-    nodes, weights = np.polynomial.hermite.hermgauss(order)
-    dtype = np.dtype(dtype)
-    nodes = nodes.astype(dtype, copy=False)
-    weights = (weights / np.sqrt(np.pi)).astype(dtype, copy=False)
-    return nodes, weights
+def _tmrel_quadrature(*breakpoints: float) -> tuple[np.ndarray, np.ndarray]:
+    """Return nodes and expectation weights for the uniform sodium TMREL."""
+
+    bounds = {
+        SODIUM_TMREL_LOW_G_PER_DAY,
+        SODIUM_TMREL_HIGH_G_PER_DAY,
+        *(
+            point
+            for point in breakpoints
+            if SODIUM_TMREL_LOW_G_PER_DAY < point < SODIUM_TMREL_HIGH_G_PER_DAY
+        ),
+    }
+    ordered = sorted(bounds)
+    nodes = []
+    weights = []
+    tmrel_width = SODIUM_TMREL_HIGH_G_PER_DAY - SODIUM_TMREL_LOW_G_PER_DAY
+    for low, high in zip(ordered[:-1], ordered[1:], strict=True):
+        midpoint = (low + high) / 2.0
+        half_width = (high - low) / 2.0
+        nodes.append(midpoint + half_width * _TMREL_QUADRATURE_NODES)
+        weights.append(_TMREL_QUADRATURE_WEIGHTS * half_width / tmrel_width)
+    return np.concatenate(nodes), np.concatenate(weights)

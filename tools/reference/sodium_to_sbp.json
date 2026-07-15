@@ -2,6 +2,21 @@
   "schema_version": 1,
   "canonical_unit": "mm Hg per g/day urinary sodium",
   "grams_sodium_per_100_mmol": 2.299,
+  "dietary_to_urinary": {
+    "central_fraction": 0.928,
+    "ci_lower": 0.907,
+    "ci_upper": 0.950,
+    "source": "Lucko et al. 2018",
+    "doi": "10.1111/jch.13353",
+    "note": "Central prototype uses the pooled mean; uncertainty is not propagated."
+  },
+  "sodium_tmrel": {
+    "distribution": "uniform",
+    "lower_g_per_day_urinary": 1.0,
+    "upper_g_per_day_urinary": 5.0,
+    "source": "GBD 2021 dietary risk methods",
+    "note": "Runtime integrates this interval deterministically."
+  },
   "source_files": {
     "filippini_2021": {
       "filename": "filippini_combined.pdf",

@@ -10,13 +10,18 @@ import pandas as pd
 import pytest
 
 from mealhealth import data
-from mealhealth.foodgroups import ADULT_AGES, CAUSES, MODEL_RISK_FACTORS
+from mealhealth.foodgroups import (
+    ADULT_AGES,
+    CAUSES,
+    DIRECT_NUTRIENT_FACTORS,
+    RISK_FACTORS,
+)
 from mealhealth.model import RelativeRiskCurves
 
 
 def test_bundled_data_present():
     rr = data.relative_risks()
-    assert set(rr["risk_factor"]) == set(MODEL_RISK_FACTORS)
+    assert set(rr["risk_factor"]) == set(RISK_FACTORS) | set(DIRECT_NUTRIENT_FACTORS)
     assert set(rr["cause"]) <= set(CAUSES)
     # every (risk, cause, age) has all 15 adult ages
     counts = rr.groupby(["risk_factor", "cause"])["age"].nunique()

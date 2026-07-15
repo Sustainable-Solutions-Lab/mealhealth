@@ -67,6 +67,20 @@ def _validate_structure(reference: dict[str, Any]) -> None:
         raise ValueError("Unexpected canonical sodium-to-SBP unit")
     if not np.isclose(reference.get("grams_sodium_per_100_mmol"), 2.299):
         raise ValueError("Unexpected sodium mass conversion")
+    recovery = reference.get("dietary_to_urinary", {})
+    if not (
+        recovery.get("ci_lower")
+        <= recovery.get("central_fraction")
+        <= recovery.get("ci_upper")
+    ) or not np.isclose(recovery.get("central_fraction"), 0.928):
+        raise ValueError("Unexpected dietary-to-urinary sodium conversion")
+    tmrel = reference.get("sodium_tmrel", {})
+    if (
+        tmrel.get("distribution") != "uniform"
+        or not np.isclose(tmrel.get("lower_g_per_day_urinary"), 1.0)
+        or not np.isclose(tmrel.get("upper_g_per_day_urinary"), 5.0)
+    ):
+        raise ValueError("Unexpected sodium TMREL specification")
     models = reference.get("linear_models")
     if not isinstance(models, list) or not models:
         raise ValueError("linear_models must be a non-empty list")

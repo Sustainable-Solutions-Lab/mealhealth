@@ -105,13 +105,14 @@ def _write_synthetic_inputs(tmp_path, monkeypatch):
         exposure_path, index=False
     )
 
-    mortality_path = tmp_path / "mortality.csv"
+    hierarchy_path = tmp_path / "hierarchy.xlsx"
     pd.DataFrame(
         {
-            "location_id": [102, 80],
-            "location_name": ["United States of America", "France"],
+            "Location ID": [102, 80],
+            "Location Name": ["United States of America", "France"],
+            "Level": [3, 3],
         }
-    ).to_csv(mortality_path, index=False)
+    ).to_excel(hierarchy_path, sheet_name="GBD 2021 Locations Hierarchy", index=False)
     wpp_path = tmp_path / "wpp.csv"
     pd.DataFrame(_wpp_rows()).to_csv(wpp_path, index=False)
     baseline_path = tmp_path / "baseline.csv"
@@ -121,15 +122,15 @@ def _write_synthetic_inputs(tmp_path, monkeypatch):
     source = builder.NutrientSource(
         "omega3", "diet/omega3.csv", _hash(exposure_path), "g/day"
     )
-    return source, baseline_path, mortality_path, wpp_path, exposure_path
+    return source, baseline_path, hierarchy_path, wpp_path, exposure_path
 
 
 def test_builder_population_weights_proxy_and_determinism(tmp_path, monkeypatch):
-    source, baseline, mortality, wpp, _ = _write_synthetic_inputs(tmp_path, monkeypatch)
+    source, baseline, hierarchy, wpp, _ = _write_synthetic_inputs(tmp_path, monkeypatch)
     result = builder.build_baseline_nutrients(
         source=source,
         baseline_intake_path=baseline,
-        mortality_path=mortality,
+        location_hierarchy_path=hierarchy,
         wpp_path=wpp,
     )
     values = result.set_index("country")

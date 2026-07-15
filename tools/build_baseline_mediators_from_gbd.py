@@ -22,6 +22,8 @@ import argparse
 from dataclasses import dataclass
 import hashlib
 from pathlib import Path
+import shutil
+import urllib.request
 
 import numpy as np
 import pandas as pd
@@ -31,7 +33,11 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = ROOT / "data" / "raw"
 OUT_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_mediators.csv"
 BASELINE_INTAKE_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_intake.csv"
-MORTALITY_PATH = RAW_DIR / "IHME-GBD_2023-death-rates-2020.csv"
+LOCATION_HIERARCHY_PATH = RAW_DIR / "IHME_GBD_2021_A1_HIERARCHIES_Y2024M05D15.XLSX"
+LOCATION_HIERARCHY_URL = (
+    "https://www.healthdata.org/sites/default/files/2024-05/"
+    "IHME_GBD_2021_A1_HIERARCHIES_Y2024M05D15.XLSX"
+)
 REFERENCE_YEAR = 2020
 
 EXPOSURE_COLUMNS = [
@@ -127,6 +133,7 @@ COUNTRY_NAME_OVERRIDES = {
     "Saint Barthélemy": "BLM",
     "Saint Martin (French part)": "MAF",
     "Sint Maarten (Dutch part)": "SXM",
+    "Taiwan (Province of China)": "TWN",
     "The former Yugoslav Republic of Macedonia": "MKD",
     "Türkiye": "TUR",
     "United Kingdom of Great Britain and Northern Ireland": "GBR",
@@ -218,19 +225,45 @@ def _read_and_validate_exposure(
     return frame
 
 
-def _national_locations(mortality_path: Path) -> pd.DataFrame:
-    mortality = pd.read_csv(
-        mortality_path, usecols=["location_id", "location_name"]
-    ).drop_duplicates()
-    if mortality["location_id"].duplicated().any():
-        raise ValueError("Mortality input maps a national location_id to >1 name")
-    mortality["source_country"] = mortality["location_name"].map(_map_country_to_iso3)
-    if mortality["source_country"].isna().any():
-        names = sorted(
-            mortality.loc[mortality["source_country"].isna(), "location_name"]
+def _ensure_location_hierarchy(path: Path) -> None:
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    request = urllib.request.Request(  # noqa: S310 (trusted IHME host)
+        LOCATION_HIERARCHY_URL, headers={"User-Agent": "Mozilla/5.0"}
+    )
+    with (
+        urllib.request.urlopen(request, timeout=120) as response,
+        path.open(  # noqa: S310
+            "wb"
+        ) as output,
+    ):
+        shutil.copyfileobj(response, output)
+
+
+def _national_locations(hierarchy_path: Path) -> pd.DataFrame:
+    hierarchy = pd.read_excel(hierarchy_path, sheet_name="GBD 2021 Locations Hierarchy")
+    required = {"Location ID", "Location Name", "Level"}
+    missing_columns = required - set(hierarchy.columns)
+    if missing_columns:
+        raise ValueError(
+            f"GBD location hierarchy missing columns: {sorted(missing_columns)}"
         )
+    national = hierarchy.loc[
+        hierarchy["Level"] == 3, ["Location ID", "Location Name"]
+    ].drop_duplicates()
+    national = national.rename(
+        columns={"Location ID": "location_id", "Location Name": "location_name"}
+    )
+    if national["location_id"].duplicated().any():
+        raise ValueError("GBD hierarchy maps a national location_id to >1 name")
+    national["source_country"] = national["location_name"].map(_map_country_to_iso3)
+    if national["source_country"].isna().any():
+        names = sorted(national.loc[national["source_country"].isna(), "location_name"])
         raise ValueError(f"Could not map national GBD locations: {names}")
-    return mortality[["location_id", "source_country"]]
+    if national["source_country"].duplicated().any():
+        raise ValueError("GBD hierarchy maps multiple national locations to one ISO3")
+    return national[["location_id", "source_country"]]
 
 
 def _select_source_cells(
@@ -266,21 +299,24 @@ def build_baseline_mediators(
     *,
     raw_dir: Path = RAW_DIR,
     baseline_intake_path: Path = BASELINE_INTAKE_PATH,
-    mortality_path: Path | None = None,
+    location_hierarchy_path: Path | None = None,
     sodium_source: ExposureSource = SODIUM_SOURCE,
     sbp_source: ExposureSource = SBP_SOURCE,
     verify_checksum: bool = True,
 ) -> pd.DataFrame:
     """Return exact 2020 country-age-sex sodium and SBP mean exposures."""
 
-    mortality_path = mortality_path or raw_dir / MORTALITY_PATH.name
+    location_hierarchy_path = location_hierarchy_path or (
+        raw_dir / LOCATION_HIERARCHY_PATH.name
+    )
+    _ensure_location_hierarchy(location_hierarchy_path)
     target_countries = sorted(
         pd.read_csv(baseline_intake_path, usecols=["country"])["country"].unique()
     )
     source_countries = {
         MEDIATOR_COUNTRY_PROXIES.get(country, country) for country in target_countries
     }
-    locations = _national_locations(mortality_path)
+    locations = _national_locations(location_hierarchy_path)
     sodium = _select_source_cells(
         _read_and_validate_exposure(
             sodium_source, raw_dir=raw_dir, verify_checksum=verify_checksum

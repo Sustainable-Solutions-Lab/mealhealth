@@ -36,19 +36,23 @@ class FakeBurden:
     """2-band life table; mortality only in the first two adult bands >= a0."""
 
     def __init__(self):
-        self.death_rate = {("CHD", "40-44"): 0.002, ("CHD", "45-49"): 0.004}
-        self.local_ex = {"40-44": 40.0, "45-49": 35.0}
+        self.death_rate = {
+            (sex, "CHD", "40-44"): 0.002 for sex in ("male", "female")
+        } | {(sex, "CHD", "45-49"): 0.004 for sex in ("male", "female")}
+        self.local_ex = {(sex, "40-44"): 40.0 for sex in ("male", "female")} | {
+            (sex, "45-49"): 35.0 for sex in ("male", "female")
+        }
         self.standard_ex = {"40-44": 50.0, "45-49": 45.0}
         self._surv = {"40-44": 1.0, "45-49": 0.9}
 
-    def conditional_survival(self, age, a0_bucket):
+    def sex_weights(self, age):
+        return {"male": 0.5, "female": 0.5}
+
+    def conditional_survival(self, sex, age, a0_bucket):
         return self._surv.get(age, 0.0)
 
-    def age_span_years(self, age):
+    def age_span_years(self, sex, age):
         return 5.0
-
-    def death_rate_get(self, key, default):  # not used; dict.get is called
-        return self.death_rate.get(key, default)
 
 
 def test_individual_yll_matches_hand_calc():

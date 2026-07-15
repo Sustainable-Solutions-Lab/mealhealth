@@ -15,22 +15,20 @@ Outputs (schemas documented in ``src/mealhealth/data/DATA_PROVENANCE.md``):
 - ``relative_risks.csv``  GBD 2023 Burden-of-Proof dose–response curves
                           (model basis): risk_factor, cause, age,
                           exposure_g_per_day, rr_mean, rr_low, rr_high
-- ``mortality.csv``       GBD 2023 cause-specific death rates:
-                          age, cause, country, death_rate_per_1000
-- ``population.csv``      UN WPP population by age: age, country, population
-- ``local_life_table.csv``
-                          UN WPP abridged life table: country, age, lx, ex
-- ``standard_life_table.csv``
-                          GBD 2023 theoretical minimum-risk life expectancy:
-                          age, ex
+- ``mortality.csv``       WHO GHE 2021 cause-specific death rates (year 2020):
+                          country, sex, cause, age, death_rate_per_1000
+- ``population.csv``      UN WPP population by age/sex:
+                          age, sex, country, population
+- ``local_life_table.csv`` UN WPP abridged life table:
+                          country, sex, age, lx, ex
+- ``standard_life_table.csv`` GBD 2023 theoretical minimum-risk life
+                          expectancy: age, ex
 
 Raw inputs live under ``data/raw/`` (see ``docs/data_sources.md`` for how to
-obtain each one). The two UN WPP files and the GBD 2023 Burden-of-Proof RR
-curves are fetched automatically; the GBD 2023 cause-specific death-rate CSV
-and theoretical minimum-risk life table require a (free) IHME account and must
-be downloaded manually beforehand. The relative-risk age structure and TMRELs
-come from curated tables under ``tools/reference/`` (see
-``tools/generate_rr_age_attenuation.py``).
+obtain each one). The WHO mortality data, two UN WPP files, and GBD 2023
+Burden-of-Proof RR curves are fetched automatically. The relative-risk age
+structure and TMRELs come from curated tables under
+``tools/reference/`` (see ``tools/generate_rr_age_attenuation.py``).
 
 The *baseline diet* (``baseline_intake.csv``, ``baseline_calories.csv``) is a
 separate dataset and is **not** built here — see
@@ -46,13 +44,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
 import numpy as np
 import pandas as pd
-import pycountry
 
 # --------------------------------------------------------------------------
 # Configuration
@@ -66,7 +64,7 @@ OUT_DIR = ROOT / "src" / "mealhealth" / "data"
 REFERENCE_YEAR = 2020
 
 # Raw inputs (placed under data/raw/; see docs/data_sources.md).
-GBD_MORTALITY_CSV = RAW_DIR / f"IHME-GBD_2023-death-rates-{REFERENCE_YEAR}.csv"
+WHO_GHE_MORTALITY_CSV = RAW_DIR / "WHO_GHE_2021_mortality_2020.csv"
 GBD_REFERENCE_LIFE_TABLE_CSV = (
     RAW_DIR / "IHME_GBD_2023_DEMOGRAPHICS_1950_2023_TMRLT_Y2025M06D09.CSV"
 )
@@ -93,6 +91,22 @@ WPP_LIFE_TABLE_URL = (
     "https://population.un.org/wpp/assets/Excel%20Files/"
     "1_Indicator%20(Standard)/CSV_FILES/"
     "WPP2024_Life_Table_Abridged_Medium_2024-2100.csv.gz"
+)
+
+# WHO Global Health Estimates 2021 OData endpoint. The selected 2020 rows are
+# public and require no account. One request is made per cause and sex so the
+# API's ``$top`` cap can never silently truncate the result.
+WHO_GHE_API_URL = "https://xmart-api-public.who.int/DEX_CMS/GHE_FULL"
+WHO_GHE_SELECT_COLUMNS = (
+    "DIM_COUNTRY_CODE",
+    "DIM_YEAR_CODE",
+    "DIM_AGEGROUP_CODE",
+    "DIM_SEX_CODE",
+    "DIM_GHECAUSE_CODE",
+    "DIM_GHECAUSE_TITLE",
+    "ATTR_POPULATION_NUMERIC",
+    "VAL_DTHS_RATE100K_NUMERIC",
+    "VAL_DTHS_COUNT_NUMERIC",
 )
 
 # IHME Burden-of-Proof JSON API (GBD 2023 dietary exposure-response curves).
@@ -200,15 +214,16 @@ AGE_BUCKETS = [
 
 
 def _ensure_raw_downloads() -> None:
-    """Download the public UN WPP files into data/raw/ when missing.
+    """Download public WHO GHE and UN WPP files when missing.
 
-    The GBD 2023 cause-specific death-rate CSV and theoretical minimum-risk life
-    table require a (free) IHME account and cannot be auto-downloaded; a clear
-    error points the developer at the acquisition guide. The GBD 2023
-    relative-risk curves are fetched separately from the Burden-of-Proof tool
-    (no login) by :func:`_fetch_bop_curves`.
+    The GBD theoretical-minimum-risk life table still requires a free IHME
+    account and is validated by its builder. Relative-risk curves are fetched
+    separately from the public Burden-of-Proof tool.
     """
     RAW_DIR.mkdir(parents=True, exist_ok=True)
+    if not WHO_GHE_MORTALITY_CSV.exists():
+        print("Downloading 2020 cause-specific mortality from WHO GHE ...")
+        retrieve_who_ghe_mortality().to_csv(WHO_GHE_MORTALITY_CSV, index=False)
     for path, url in (
         (WPP_POPULATION_GZ, WPP_POPULATION_URL),
         (WPP_LIFE_TABLE_GZ, WPP_LIFE_TABLE_URL),
@@ -217,18 +232,6 @@ def _ensure_raw_downloads() -> None:
             continue
         print(f"Downloading {path.name} from UN WPP ...")
         urllib.request.urlretrieve(url, path)  # noqa: S310 (trusted UN URL)
-
-    missing_manual = [
-        path
-        for path in (GBD_MORTALITY_CSV, GBD_REFERENCE_LIFE_TABLE_CSV)
-        if not path.exists()
-    ]
-    if missing_manual:
-        paths = "\n".join(f"  {path}" for path in missing_manual)
-        raise FileNotFoundError(
-            "Missing IHME GBD raw input(s). These require a free IHME account; "
-            "see docs/data_sources.md for download instructions:\n" + paths
-        )
 
 
 # --------------------------------------------------------------------------
@@ -562,122 +565,204 @@ def build_relative_risks() -> pd.DataFrame:
 
 
 # --------------------------------------------------------------------------
-# Mortality (IHME GBD 2023 cause-specific death rates)
+# Mortality (WHO Global Health Estimates 2021, reference year 2020)
 # --------------------------------------------------------------------------
 
-# IHME location names pycountry cannot match unambiguously.
-COUNTRY_NAME_OVERRIDES = {
-    "Bolivia (Plurinational State of)": "BOL",
-    "Bonaire, Saint Eustatius and Saba": "BES",
-    "Cabo Verde": "CPV",
-    "Côte d'Ivoire": "CIV",
-    "Democratic People's Republic of Korea": "PRK",
-    "Democratic Republic of the Congo": "COD",
-    "French Guiana": "GUF",
-    "Iran (Islamic Republic of)": "IRN",
-    "Lao People's Democratic Republic": "LAO",
-    "Micronesia (Federated States of)": "FSM",
-    "Niger": "NER",  # fuzzy search confuses with Nigeria (NGA)
-    "Republic of Korea": "KOR",
-    "Republic of Moldova": "MDA",
-    "Republic of the Congo": "COG",
-    "Saint Barthélemy": "BLM",
-    "Saint Martin (French part)": "MAF",
-    "Sint Maarten (Dutch part)": "SXM",
-    "The former Yugoslav Republic of Macedonia": "MKD",
-    "Türkiye": "TUR",
-    "United Kingdom of Great Britain and Northern Ireland": "GBR",
-    "United Republic of Tanzania": "TZA",
-    "United States of America": "USA",
-    "United States Virgin Islands": "VIR",
-    "Venezuela (Bolivarian Republic of)": "VEN",
-    "Viet Nam": "VNM",
+# WHO GHE identifiers. Haemorrhagic stroke and chronic kidney disease are
+# intentionally aggregated because WHO does not expose the finer IHME cause
+# taxonomy. All component causes in each aggregate use the same mealhealth RR
+# curve, so summing their baseline rates preserves the burden calculation.
+WHO_GHE_CAUSE_MAP = {
+    640: "StomachCancer",
+    650: "CRC",
+    800: "T2DM",
+    1130: "CHD",
+    1141: "Stroke",
+    1142: "HaemorrhagicStroke",
+    1272: "CKD",
+    1273: "CKD",
+}
+WHO_GHE_CAUSE_TITLES = {
+    640: "Stomach cancer",
+    650: "Colon and rectum cancers",
+    800: "Diabetes mellitus",
+    1130: "Ischaemic heart disease",
+    1141: "Ischaemic stroke",
+    1142: "Haemorrhagic stroke",
+    1272: "Chronic kidney disease due to diabetes",
+    1273: "Other chronic kidney disease",
 }
 
-# IHME cause name -> model cause (mortality sheet uses "Diabetes mellitus").
-GBD_MORTALITY_CAUSE_MAP = {
-    "Ischemic heart disease": "CHD",
-    "Ischemic stroke": "Stroke",
-    "Diabetes mellitus": "T2DM",
-    "Colon and rectum cancer": "CRC",
+WHO_GHE_AGE_MAP = {
+    "Y0T1": "<1",
+    "Y1T4": "1-4",
+    **{f"Y{start}T{start + 4}": f"{start}-{start + 4}" for start in range(5, 85, 5)},
 }
+WHO_GHE_OPEN_AGE = "YGE_85"
+WHO_GHE_OPEN_AGE_TARGETS = ("85-89", "90-94", "95+")
 
-# IHME age name -> model age bucket (two under-5 bands fold into 1-4).
-GBD_AGE_MAP = {
-    "<1 year": "<1",
-    "12-23 months": "1-4",
-    "2-4 years": "1-4",
-    "5-9 years": "5-9",
-    "10-14 years": "10-14",
-    "15-19 years": "15-19",
-    "20-24 years": "20-24",
-    "25-29 years": "25-29",
-    "30-34 years": "30-34",
-    "35-39 years": "35-39",
-    "40-44 years": "40-44",
-    "45-49 years": "45-49",
-    "50-54 years": "50-54",
-    "55-59 years": "55-59",
-    "60-64 years": "60-64",
-    "65-69 years": "65-69",
-    "70-74 years": "70-74",
-    "75-79 years": "75-79",
-    "80-84 years": "80-84",
-    "85-89 years": "85-89",
-    "90-94 years": "90-94",
-    "95+ years": "95+",
-}
-
-# Territories/dependencies without separate IHME data -> proxy country.
+# Territories/dependencies without separate WHO Member State estimates.
 MORTALITY_COUNTRY_PROXIES = {
     "ASM": "WSM",  # American Samoa -> Samoa
     "GUF": "FRA",  # French Guiana -> France
     "PRI": "USA",  # Puerto Rico -> USA
-    "SOM": "ETH",  # Somalia -> Ethiopia
+    "PSE": "JOR",  # State of Palestine -> Jordan
+    "TWN": "KOR",  # Taiwan -> Republic of Korea
 }
 
 
-def _map_country_to_iso3(name: str) -> str | None:
-    if name in COUNTRY_NAME_OVERRIDES:
-        return COUNTRY_NAME_OVERRIDES[name]
-    try:
-        matches = pycountry.countries.search_fuzzy(name)
-    except LookupError:
-        return None
-    return matches[0].alpha_3 if matches else None
-
-
-def build_mortality() -> pd.DataFrame:
-    """Per-country cause-specific death rate (per 1,000) for the four causes."""
-    df = pd.read_csv(GBD_MORTALITY_CSV)
-    df = df[(df["metric_name"] == "Rate") & (df["year"] == REFERENCE_YEAR)].copy()
-
-    country_map = {n: _map_country_to_iso3(n) for n in df["location_name"].unique()}
-    df["country"] = df["location_name"].map(country_map)
-    df["cause"] = df["cause_name"].map(GBD_MORTALITY_CAUSE_MAP)
-    df["age"] = df["age_name"].map(GBD_AGE_MAP)
-    df = df.dropna(subset=["country", "cause", "age"])
-
-    # Fold the two under-5 IHME bands into 1-4 (unweighted mean of rates).
-    df = df.groupby(["country", "cause", "age"], as_index=False).agg(
-        val=("val", "mean")
+def _who_ghe_get(params: dict[str, str | int]) -> dict:
+    query = urllib.parse.urlencode(params)
+    request = urllib.request.Request(  # noqa: S310 (trusted WHO host)
+        f"{WHO_GHE_API_URL}?{query}",
+        headers={"Accept": "application/json", "User-Agent": "mealhealth-data/1"},
     )
-    df["death_rate_per_1000"] = df["val"] / 100.0  # per 100,000 -> per 1,000
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(  # noqa: S310
+                request, timeout=120
+            ) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {429, 500, 502, 503, 504} or attempt == 4:
+                raise
+        except urllib.error.URLError:
+            if attempt == 4:
+                raise
+        time.sleep(2**attempt)
+    raise RuntimeError("unreachable")
 
-    out = df[["age", "cause", "country", "death_rate_per_1000"]]
 
-    # Fill known territories from a proxy country where IHME lacks them.
-    present = set(out["country"])
+def retrieve_who_ghe_mortality() -> pd.DataFrame:
+    """Retrieve complete 2020 age/sex mortality rows for model causes."""
+
+    rows: list[dict] = []
+    for cause_id in WHO_GHE_CAUSE_MAP:
+        for source_sex in ("MALE", "FEMALE"):
+            params = {
+                "$filter": (
+                    f"DIM_YEAR_CODE eq {REFERENCE_YEAR} and "
+                    f"DIM_SEX_CODE eq '{source_sex}' and "
+                    f"DIM_GHECAUSE_CODE eq {cause_id}"
+                ),
+                "$select": ",".join(WHO_GHE_SELECT_COLUMNS),
+                "$top": 10000,
+            }
+            payload = _who_ghe_get(params)
+            page = payload.get("value")
+            if not isinstance(page, list) or not page:
+                raise ValueError(
+                    f"WHO GHE returned no {source_sex} rows for cause {cause_id}"
+                )
+            if len(page) >= int(params["$top"]) or payload.get("@odata.nextLink"):
+                raise ValueError(
+                    "WHO GHE query may be truncated; reduce the query dimensions"
+                )
+            rows.extend(page)
+    return pd.DataFrame(rows, columns=WHO_GHE_SELECT_COLUMNS)
+
+
+def build_mortality(
+    raw_path: Path = WHO_GHE_MORTALITY_CSV,
+) -> pd.DataFrame:
+    """Build WHO GHE sex-specific death rates per 1,000 person-years."""
+
+    if not raw_path.exists():
+        raise FileNotFoundError(f"Missing WHO GHE mortality cache:\n  {raw_path}")
+    frame = pd.read_csv(raw_path)
+    required = set(WHO_GHE_SELECT_COLUMNS)
+    missing_columns = required - set(frame.columns)
+    if missing_columns:
+        raise ValueError(f"WHO GHE data missing columns: {sorted(missing_columns)}")
+
+    frame["DIM_YEAR_CODE"] = pd.to_numeric(frame["DIM_YEAR_CODE"], errors="coerce")
+    frame["DIM_GHECAUSE_CODE"] = pd.to_numeric(
+        frame["DIM_GHECAUSE_CODE"], errors="coerce"
+    )
+    if set(frame["DIM_YEAR_CODE"]) != {REFERENCE_YEAR}:
+        raise ValueError("WHO GHE mortality cache has an unexpected reference year")
+    if set(frame["DIM_SEX_CODE"]) != {"MALE", "FEMALE"}:
+        raise ValueError("WHO GHE mortality cache must contain male and female rows")
+    if set(frame["DIM_GHECAUSE_CODE"]) != set(WHO_GHE_CAUSE_MAP):
+        raise ValueError("WHO GHE mortality cache has unexpected cause coverage")
+    cause_titles = set(
+        frame[["DIM_GHECAUSE_CODE", "DIM_GHECAUSE_TITLE"]]
+        .drop_duplicates()
+        .itertuples(index=False, name=None)
+    )
+    if cause_titles != set(WHO_GHE_CAUSE_TITLES.items()):
+        raise ValueError("WHO GHE mortality cache has unexpected cause titles")
+    required_ages = set(WHO_GHE_AGE_MAP) | {WHO_GHE_OPEN_AGE}
+    if not required_ages <= set(frame["DIM_AGEGROUP_CODE"]):
+        raise ValueError("WHO GHE mortality cache has incomplete age coverage")
+
+    source_key = [
+        "DIM_COUNTRY_CODE",
+        "DIM_SEX_CODE",
+        "DIM_GHECAUSE_CODE",
+        "DIM_AGEGROUP_CODE",
+    ]
+    if frame.duplicated(source_key).any():
+        raise ValueError("WHO GHE mortality cache has duplicate cells")
+
+    frame = frame[frame["DIM_AGEGROUP_CODE"].isin(required_ages)].copy()
+    rates = pd.to_numeric(frame["VAL_DTHS_RATE100K_NUMERIC"], errors="coerce")
+    if not np.isfinite(rates).all() or (rates < 0).any():
+        raise ValueError("WHO GHE mortality rates must be finite and non-negative")
+    frame["death_rate_per_1000"] = rates / 100.0
+    frame["country"] = frame["DIM_COUNTRY_CODE"].astype(str)
+    frame["sex"] = frame["DIM_SEX_CODE"].str.lower()
+    frame["cause"] = frame["DIM_GHECAUSE_CODE"].map(WHO_GHE_CAUSE_MAP)
+    frame["age"] = frame["DIM_AGEGROUP_CODE"].map(WHO_GHE_AGE_MAP)
+
+    closed = frame[frame["age"].notna()].copy()
+    open_age = frame[frame["DIM_AGEGROUP_CODE"] == WHO_GHE_OPEN_AGE]
+    expanded = []
+    for age in WHO_GHE_OPEN_AGE_TARGETS:
+        part = open_age.copy()
+        part["age"] = age
+        expanded.append(part)
+    frame = pd.concat([closed, *expanded], ignore_index=True)
+
+    # The two chronic-kidney rows are additive components of one model cause.
+    out = frame.groupby(["country", "sex", "cause", "age"], as_index=False)[
+        "death_rate_per_1000"
+    ].sum()
+    out["source_country"] = out["country"]
+
+    source_countries = sorted(out["country"].unique())
+    model_causes = tuple(dict.fromkeys(WHO_GHE_CAUSE_MAP.values()))
+    expected = pd.MultiIndex.from_product(
+        [source_countries, ("male", "female"), model_causes, AGE_BUCKETS],
+        names=["country", "sex", "cause", "age"],
+    )
+    actual = pd.MultiIndex.from_frame(out[["country", "sex", "cause", "age"]])
+    missing = expected.difference(actual)
+    if len(missing):
+        raise ValueError(
+            "WHO GHE mortality is missing source strata; "
+            f"first entries: {list(missing[:10])}"
+        )
+
     proxy_rows = []
     for target, proxy in MORTALITY_COUNTRY_PROXIES.items():
-        if target not in present and proxy in present:
-            rows = out[out["country"] == proxy].copy()
-            rows["country"] = target
-            proxy_rows.append(rows)
-    if proxy_rows:
-        out = pd.concat([out, *proxy_rows], ignore_index=True)
-
-    return out.sort_values(["country", "cause", "age"]).reset_index(drop=True)
+        rows = out[out["country"] == proxy].copy()
+        if rows.empty:
+            raise ValueError(f"WHO GHE mortality proxy source {proxy} is unavailable")
+        rows["country"] = target
+        proxy_rows.append(rows)
+    out = pd.concat([out, *proxy_rows], ignore_index=True)
+    out = out[
+        [
+            "country",
+            "sex",
+            "cause",
+            "age",
+            "source_country",
+            "death_rate_per_1000",
+        ]
+    ]
+    return out.sort_values(["country", "sex", "cause", "age"]).reset_index(drop=True)
 
 
 # --------------------------------------------------------------------------
@@ -686,10 +771,10 @@ def build_mortality() -> pd.DataFrame:
 
 
 def build_population() -> pd.DataFrame:
-    """Per-country population by age bucket (+ ``all-a`` total), persons, 2020.
+    """Per-country/sex population by age bucket (+ ``all-a``), persons, 2020.
 
     The WPP "Population by 5-year age group" file reports a combined ``0-4``
-    band (and ``PopTotal`` is already both sexes), so the under-5 band is
+    band, so each sex's under-5 band is
     disaggregated into ``<1`` (20%) and ``1-4`` (80%) and the open-ended
     ``95-99`` / ``100+`` bands are merged into ``95+``.
     """
@@ -698,54 +783,66 @@ def build_population() -> pd.DataFrame:
     df = df[pd.to_numeric(df["Time"], errors="coerce") == REFERENCE_YEAR]
     df = df[df["ISO3_code"].notna()].copy()
     df["ISO3_code"] = df["ISO3_code"].astype(str).str.upper()
-    df["PopTotal"] = pd.to_numeric(df["PopTotal"], errors="coerce")
-    df = df.dropna(subset=["PopTotal"])
+    for column in ("PopMale", "PopFemale"):
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+    df = df.dropna(subset=["PopMale", "PopFemale"])
     df["AgeGrpStart"] = pd.to_numeric(df.get("AgeGrpStart"), errors="coerce")
     df["AgeGrpSpan"] = pd.to_numeric(df.get("AgeGrpSpan"), errors="coerce")
 
     records = []
     for iso3, grp in df.groupby("ISO3_code"):
-        buckets: dict[str, float] = {}
-        for _, row in grp.iterrows():
-            bucket = _wpp_age_bucket(row["AgeGrpStart"], row["AgeGrpSpan"])
-            if bucket is None:
-                continue
-            buckets[bucket] = buckets.get(bucket, 0.0) + float(row["PopTotal"]) * 1000.0
+        for sex, population_column in (("male", "PopMale"), ("female", "PopFemale")):
+            buckets: dict[str, float] = {}
+            for _, row in grp.iterrows():
+                bucket = _wpp_age_bucket(row["AgeGrpStart"], row["AgeGrpSpan"])
+                if bucket is None:
+                    continue
+                buckets[bucket] = (
+                    buckets.get(bucket, 0.0) + float(row[population_column]) * 1000.0
+                )
 
-        # Disaggregate a combined 0-4 band into <1 / 1-4 where granular bands
-        # are absent (the 5-year-group file always reports only 0-4).
-        zero_four = buckets.pop("0-4", 0.0)
-        if zero_four > 0.0:
-            under_one = buckets.get("<1", 0.0)
-            one_to_four = buckets.get("1-4", 0.0)
-            remainder = max(zero_four - under_one - one_to_four, 0.0)
-            if under_one == 0.0 and one_to_four == 0.0:
-                under_one = 0.2 * remainder
-                one_to_four = remainder - under_one
-            elif under_one == 0.0:
-                under_one = remainder
-            elif one_to_four == 0.0:
-                one_to_four = remainder
-            buckets["<1"] = under_one
-            buckets["1-4"] = one_to_four
+            # Disaggregate a combined 0-4 band into <1 / 1-4 where granular
+            # bands are absent (the 5-year-group file reports only 0-4).
+            zero_four = buckets.pop("0-4", 0.0)
+            if zero_four > 0.0:
+                under_one = buckets.get("<1", 0.0)
+                one_to_four = buckets.get("1-4", 0.0)
+                remainder = max(zero_four - under_one - one_to_four, 0.0)
+                if under_one == 0.0 and one_to_four == 0.0:
+                    under_one = 0.2 * remainder
+                    one_to_four = remainder - under_one
+                elif under_one == 0.0:
+                    under_one = remainder
+                elif one_to_four == 0.0:
+                    one_to_four = remainder
+                buckets["<1"] = under_one
+                buckets["1-4"] = one_to_four
 
-        if not all(b in buckets for b in AGE_BUCKETS):
-            continue  # incomplete coverage; dropped by the country intersection
-        for age in AGE_BUCKETS:
-            records.append({"age": age, "country": iso3, "population": buckets[age]})
-        records.append(
-            {
-                "age": "all-a",
-                "country": iso3,
-                "population": sum(buckets[a] for a in AGE_BUCKETS),
-            }
-        )
+            if not all(b in buckets for b in AGE_BUCKETS):
+                continue  # dropped later by the country intersection
+            for age in AGE_BUCKETS:
+                records.append(
+                    {
+                        "age": age,
+                        "sex": sex,
+                        "country": iso3,
+                        "population": buckets[age],
+                    }
+                )
+            records.append(
+                {
+                    "age": "all-a",
+                    "sex": sex,
+                    "country": iso3,
+                    "population": sum(buckets[a] for a in AGE_BUCKETS),
+                }
+            )
 
     out = pd.DataFrame(records)
     out["age"] = pd.Categorical(
         out["age"], categories=[*AGE_BUCKETS, "all-a"], ordered=True
     )
-    return out.sort_values(["country", "age"]).reset_index(drop=True)
+    return out.sort_values(["country", "sex", "age"]).reset_index(drop=True)
 
 
 def _wpp_age_bucket(start: float, span: float) -> str | None:
@@ -794,16 +891,15 @@ def _normalize_wpp_age(label: object) -> str | None:
 
 
 def build_local_life_table(countries: set[str]) -> pd.DataFrame:
-    """Per-country abridged life table (lx survivors, ex) for both sexes.
+    """Per-country/sex abridged life table (lx survivors and remaining ex).
 
     Falls back to the World life table for countries WPP lacks individually.
     The WPP abridged file starts in 2024, so the nearest year is used.
     """
     raw = pd.read_csv(WPP_LIFE_TABLE_GZ, low_memory=False)
-    raw = raw[
-        (raw["Variant"].astype(str).str.lower() == "medium")
-        & (raw["Sex"].astype(str).str.lower() == "total")
-    ].copy()
+    raw = raw[raw["Variant"].astype(str).str.lower() == "medium"].copy()
+    raw["sex"] = raw["Sex"].astype(str).str.lower()
+    raw = raw[raw["sex"].isin(["male", "female"])].copy()
     raw["Time"] = pd.to_numeric(raw["Time"], errors="coerce")
     years = sorted({int(y) for y in raw["Time"].dropna().unique()})
     target_year = (
@@ -817,7 +913,7 @@ def build_local_life_table(countries: set[str]) -> pd.DataFrame:
     raw["bucket"] = raw["AgeGrp"].map(_normalize_wpp_age)
     raw = raw.dropna(subset=["bucket"])
 
-    def _table_for(df: pd.DataFrame, country: str) -> list[dict] | None:
+    def _table_for(df: pd.DataFrame, country: str, sex: str) -> list[dict] | None:
         seen, recs = set(), []
         for _, r in df.iterrows():
             b = r["bucket"]
@@ -828,33 +924,41 @@ def build_local_life_table(countries: set[str]) -> pd.DataFrame:
             except (TypeError, ValueError):
                 continue
             seen.add(b)
-            recs.append({"country": country, "age": b, "lx": lx, "ex": ex})
+            recs.append({"country": country, "sex": sex, "age": b, "lx": lx, "ex": ex})
         if not all(b in seen for b in AGE_BUCKETS):
             return None
         return recs
 
     world = raw[raw["Location"].astype(str) == "World"]
-    world_recs = _table_for(world, "WORLD")
-    if world_recs is None:
-        raise RuntimeError("Could not build World life table fallback")
+    world_recs = {
+        sex: _table_for(world[world["sex"] == sex], "WORLD", sex)
+        for sex in ("male", "female")
+    }
+    if any(records is None for records in world_recs.values()):
+        raise RuntimeError("Could not build sex-specific World life table fallback")
 
     out_rows: list[dict] = []
-    by_iso = {str(k): v for k, v in raw.groupby("ISO3_code")}
+    by_iso_sex = {
+        (str(country), str(sex)): frame
+        for (country, sex), frame in raw.groupby(["ISO3_code", "sex"])
+    }
     n_fallback = 0
     for c in sorted(countries):
-        recs = _table_for(by_iso[c], c) if c in by_iso else None
-        if recs is None:
-            recs = [{**r, "country": c} for r in world_recs]
-            n_fallback += 1
-        out_rows.extend(recs)
+        for sex in ("male", "female"):
+            key = (c, sex)
+            recs = _table_for(by_iso_sex[key], c, sex) if key in by_iso_sex else None
+            if recs is None:
+                recs = [{**r, "country": c} for r in world_recs[sex] or []]
+                n_fallback += 1
+            out_rows.extend(recs)
     print(
-        f"  life table: {len(countries) - n_fallback} country-specific, "
-        f"{n_fallback} World fallback"
+        f"  life table: {2 * len(countries) - n_fallback} country-sex tables, "
+        f"{n_fallback} World fallbacks"
     )
 
     out = pd.DataFrame(out_rows)
     out["age"] = pd.Categorical(out["age"], categories=AGE_BUCKETS, ordered=True)
-    return out.sort_values(["country", "age"]).reset_index(drop=True)
+    return out.sort_values(["country", "sex", "age"]).reset_index(drop=True)
 
 
 # --------------------------------------------------------------------------
@@ -863,13 +967,7 @@ def build_local_life_table(countries: set[str]) -> pd.DataFrame:
 
 
 def build_standard_life_table() -> pd.DataFrame:
-    """Adapt the GBD 2023 TMRLT to the model's abridged age buckets.
-
-    The upstream table gives remaining life expectancy at exact age boundaries
-    through age 110. The model's final band is 95+, so its value is the
-    upstream life expectancy at the lower boundary, age 95, consistently with
-    the other abridged bands.
-    """
+    """Adapt the GBD 2023 TMRLT to the model's abridged age buckets."""
     raw = pd.read_csv(GBD_REFERENCE_LIFE_TABLE_CSV)
     required_columns = {"Age", "Life Expectancy"}
     missing_columns = required_columns - set(raw.columns)
@@ -878,7 +976,6 @@ def build_standard_life_table() -> pd.DataFrame:
             f"{GBD_REFERENCE_LIFE_TABLE_CSV.name} is missing columns: "
             f"{sorted(missing_columns)}"
         )
-
     table = raw[["Age", "Life Expectancy"]].copy()
     table["Age"] = pd.to_numeric(table["Age"], errors="raise")
     table["Life Expectancy"] = pd.to_numeric(table["Life Expectancy"], errors="raise")
@@ -887,7 +984,6 @@ def build_standard_life_table() -> pd.DataFrame:
         raise ValueError(
             f"{GBD_REFERENCE_LIFE_TABLE_CSV.name} has duplicate ages: {duplicates}"
         )
-
     age_starts = [0, 1, *range(5, 100, 5)]
     indexed = table.set_index("Age")["Life Expectancy"]
     missing_ages = [age for age in age_starts if age not in indexed.index]
@@ -896,7 +992,6 @@ def build_standard_life_table() -> pd.DataFrame:
             f"{GBD_REFERENCE_LIFE_TABLE_CSV.name} is missing required age "
             f"boundaries: {missing_ages}"
         )
-
     ex = indexed.loc[age_starts].to_numpy(dtype=float)
     if not np.isfinite(ex).all() or (ex <= 0).any():
         raise ValueError(

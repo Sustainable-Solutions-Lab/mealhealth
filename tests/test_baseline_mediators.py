@@ -71,24 +71,25 @@ def _synthetic_inputs(tmp_path):
     sbp_source = builder.ExposureSource(
         "sbp", "other/sbp.csv", _hash(sbp_path), "mm Hg"
     )
-    mortality_path = raw / "mortality.csv"
+    hierarchy_path = raw / "hierarchy.xlsx"
     pd.DataFrame(
         {
-            "location_id": [102, 80],
-            "location_name": ["United States of America", "France"],
+            "Location ID": [102, 80],
+            "Location Name": ["United States of America", "France"],
+            "Level": [3, 3],
         }
-    ).to_csv(mortality_path, index=False)
+    ).to_excel(hierarchy_path, sheet_name="GBD 2021 Locations Hierarchy", index=False)
     baseline_path = tmp_path / "baseline.csv"
     pd.DataFrame({"country": ["USA", "FRA", "GUF"]}).to_csv(baseline_path, index=False)
-    return raw, baseline_path, mortality_path, sodium_source, sbp_source
+    return raw, baseline_path, hierarchy_path, sodium_source, sbp_source
 
 
 def test_builder_preserves_strata_bounds_proxy_and_determinism(tmp_path):
-    raw, baseline, mortality, sodium_source, sbp_source = _synthetic_inputs(tmp_path)
+    raw, baseline, hierarchy, sodium_source, sbp_source = _synthetic_inputs(tmp_path)
     result = builder.build_baseline_mediators(
         raw_dir=raw,
         baseline_intake_path=baseline,
-        mortality_path=mortality,
+        location_hierarchy_path=hierarchy,
         sodium_source=sodium_source,
         sbp_source=sbp_source,
     )
@@ -122,7 +123,7 @@ def test_builder_preserves_strata_bounds_proxy_and_determinism(tmp_path):
 
 
 def test_builder_rejects_checksum_and_incomplete_join(tmp_path):
-    raw, baseline, mortality, sodium_source, sbp_source = _synthetic_inputs(tmp_path)
+    raw, baseline, hierarchy, sodium_source, sbp_source = _synthetic_inputs(tmp_path)
     with pytest.raises(ValueError, match="SHA-256 mismatch"):
         builder._read_and_validate_exposure(
             replace(sbp_source, sha256="0" * 64), raw_dir=raw
@@ -142,7 +143,7 @@ def test_builder_rejects_checksum_and_incomplete_join(tmp_path):
         builder.build_baseline_mediators(
             raw_dir=raw,
             baseline_intake_path=baseline,
-            mortality_path=mortality,
+            location_hierarchy_path=hierarchy,
             sodium_source=sodium_source,
             sbp_source=changed,
         )
