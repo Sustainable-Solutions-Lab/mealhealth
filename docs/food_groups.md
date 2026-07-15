@@ -70,7 +70,8 @@ with its own dose–response curve and its own baseline exposure:
 * `red_meat` — unprocessed beef, pork, lamb, goat.
 * `processed_meat` — bacon, ham, sausages, hot dogs, deli/cured meats.
 
-The per-country baseline split comes from the GDD-IA processed-meat fraction.
+The per-country baseline split comes from the GDD-IA processed-meat fraction
+(Springmann 2026; see [Data sources](data_sources.md#baseline-diet)).
 You can disable processed meat as a separate group with
 `include_processed_meat=False`, in which case only the seven-minus-one groups
 are modelled and any `processed_meat` you pass is rejected.

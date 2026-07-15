@@ -9,7 +9,7 @@ path = "src/mealhealth/data/**.csv"
 precedence = "override"
 SPDX-FileCopyrightText = [
     "Derived from IHME Global Burden of Disease (GBD)",
-    "Derived from GDD-IA (M. Springmann et al.)",
+    "Derived from GDD-IA (Springmann M., Nature Food, 2026)",
     "Derived from UN World Population Prospects (WPP)",
 ]
 SPDX-License-Identifier = "LicenseRef-MealHealth-NonCommercial-Data AND LicenseRef-IHME-NonCommercial"

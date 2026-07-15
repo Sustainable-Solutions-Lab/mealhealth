@@ -34,8 +34,8 @@ from a different source:
 | `baseline_nutrients.csv`  | Dietary files from IHME GBD 2023 Risk Exposure Estimates 1990–2023 + UN WPP weights | IHME non-commercial / CC BY 3.0 IGO |
 | `population.csv`          | UN World Population Prospects (population by age) | CC BY 3.0 IGO |
 | `local_life_table.csv`    | UN World Population Prospects (abridged life tables) | CC BY 3.0 IGO |
-| `baseline_intake.csv`     | GDD-IA per-country food-group intakes (NHANES override for the USA), via GLADE | GDD-IA — see [below](#baseline-diet) |
-| `baseline_calories.csv`   | GDD-IA per-country calorie target, via GLADE | GDD-IA — see [below](#baseline-diet) |
+| `baseline_intake.csv`     | GDD-IA per-country food-group intakes (NHANES override for the USA), via GLADE | CC BY 4.0 / public domain — see [below](#baseline-diet) |
+| `baseline_calories.csv`   | GDD-IA per-country calorie target, via GLADE | CC BY 4.0 — see [below](#baseline-diet) |
 
 Raw inputs live under `data/raw/` (git-ignored). Some download automatically;
 the rest need a free IHME account and a manual download, flagged below.
@@ -194,43 +194,59 @@ regenerating unless the baseline diet itself changes.
 
 ### Attribution
 
-**GDD-IA** is a per-country dietary-intake dataset for integrated-assessment use,
-developed by **M. Springmann et al. (manuscript in preparation)**; it is also the
-baseline diet used by the EAT–Lancet 2.0 commission.
+**GDD-IA** — the *Global Dietary Database for Impact Assessments* — is a
+per-country dietary-intake dataset for integrated-assessment use, developed by
+**Marco Springmann** (University College London). It combines regional food
+availability and food-waste estimates, socio-demographic variation in survey
+intake, and energy-intake estimates based on measurements of body weight, height
+and physical activity, into complete diets whose absolute intake levels are
+comparable across regions. It is also the baseline diet used by the EAT–Lancet
+2.0 commission.
 
 ### Publication status and licence
 
-GLADE itself is published:
+GDD-IA is **published and openly licensed (CC-BY-4.0)**:
+
+- Paper — Springmann, M. *Global dietary estimates for conducting health,
+  environmental and economic impact assessments.* Nature Food (2026),
+  [doi:10.1038/s43016-026-01388-z](https://doi.org/10.1038/s43016-026-01388-z)
+- Dataset — Zenodo [10.5281/zenodo.20818140](https://doi.org/10.5281/zenodo.20818140)
+  (CC-BY-4.0; 1990–2020 in five-year steps, downloadable without an account)
+
+It was previously obtained by personal correspondence and shipped here by
+permission ahead of release; that is no longer the case, and **no permission is
+now needed** — attribution under CC-BY-4.0 suffices. The data itself is
+unchanged by publication, so the committed CSVs are unaffected.
+
+GLADE is likewise published:
 
 - GLADE model snapshot — Zenodo [10.5281/zenodo.20618170](https://doi.org/10.5281/zenodo.20618170)
 - GLADE model-output data — Zenodo [10.5281/zenodo.20617942](https://doi.org/10.5281/zenodo.20617942)
 
-GDD-IA, however, is **still in preparation and is not part of those public
-deposits** (the GLADE paper lists it as the one non-public input). Its planned
-public release is under **CC-BY-4.0**. It was shared with the `mealhealth` author
-by personal correspondence, and only the reduced derived product here
-(per-country group intakes and calories) is distributed, with permission. Until
-GDD-IA is released and the derived baseline diet is deposited with its own DOI,
-`tools/baseline_diet_from_glade.py` reads a local GLADE checkout rather than a
-public download, and the committed CSVs are the canonical copy.
+Every input behind the baseline diet is therefore now public. What remains
+non-public is the *reconciliation* itself: `tools/baseline_diet_from_glade.py`
+reads a local GLADE checkout for the merged intake table (NHANES override, GBD
+anchoring, model mass basis), which is not published as a standalone table. The
+committed CSVs remain the canonical copy.
 
 ```{note}
-When GDD-IA is released and/or the baseline diet is deposited with its own DOI,
-record it here and switch the builder to fetch from that source.
+If the baseline diet is deposited with its own DOI, record it here and switch
+the builder to fetch from that source.
 ```
 
 ### Limitations
 
-- **The processed/unprocessed red-meat split** depends on the GDD-IA
-  processed-meat fraction, itself part of the not-yet-public GDD-IA product.
-- **It is not independently regenerable from public data.** The builder reads a
-  local GLADE checkout, so — unlike the health/demographic and nutrient files —
-  the committed CSVs are the only public copy; a user cannot rebuild them without
-  GLADE.
-- **Planned direction.** Once GDD-IA is public (CC-BY-4.0), source the baseline
-  diet from it directly. (A food-level baseline diet is also already in the
+- **It is not, as a whole, regenerable from public data alone.** The builder
+  reads a local GLADE checkout for the reconciled intake table, so — unlike the
+  health/demographic and nutrient files — the committed CSVs are the only public
+  copy of *this* product. Its inputs are all public, but the merge is not
+  reproducible without GLADE.
+- **The processed/unprocessed red-meat split** comes from the GDD-IA
+  processed-meat fraction. This part *is* now independently reproducible from
+  the public Zenodo record (GLADE fetches it automatically).
+- **Alternative public source.** A food-level baseline diet is already in the
   CC-BY-4.0 GLADE model-output deposit,
-  [Zenodo 10.5281/zenodo.20617942](https://doi.org/10.5281/zenodo.20617942).)
+  [Zenodo 10.5281/zenodo.20617942](https://doi.org/10.5281/zenodo.20617942).
 
 ## Licensing
 
@@ -242,8 +258,7 @@ record it here and switch the builder to fetch from that source.
   relative risks, mortality, reference life table and nutrient exposure are all
   under the IHME Free-of-Charge Non-commercial User Agreement. The other
   components are more permissive: UN WPP is CC BY 3.0 IGO; the GDD-IA-derived
-  diet data is attribution-only (pending its CC-BY-4.0 release); NHANES is
-  public domain.
+  diet data is CC BY 4.0 (attribution-only); NHANES is public domain.
 
 **Consequence:** although the code is GPL, the distributed package *as a whole*
 (code + bundled data) is for **non-commercial research, teaching and private
@@ -264,11 +279,11 @@ licence and regenerate the data themselves.
    The GPL cannot apply to the data files (it would imply freedoms the IHME
    terms forbid); hence the separate `LicenseRef` on the data. Redistributors
    must keep both notices.
-3. **The baseline diet derives from a not-yet-public dataset (GDD-IA).** It is
-   included by permission ahead of GDD-IA's planned CC-BY-4.0 release; attribute
-   it to M. Springmann et al. (GDD-IA, in preparation).
+3. **The baseline diet derives from GDD-IA, which is CC BY 4.0.** It imposes no
+   restriction beyond attribution to Springmann (2026) — the non-commercial
+   restriction on the bundled data comes from IHME GBD alone.
 4. **Attribution to preserve when publishing:** IHME GBD, UN WPP (CC BY 3.0
-   IGO), GDD-IA (Springmann et al.), and GLADE.
+   IGO), GDD-IA (Springmann 2026), and GLADE.
 
 ## Citing these data
 
@@ -284,8 +299,12 @@ When publishing results, cite:
   1950–2023*, IHME —
   <https://ghdx.healthdata.org/record/ihme-data/gbd-2023-demographics-1950-2023>.
 - United Nations, *World Population Prospects* — <https://population.un.org/wpp/>.
-- GDD-IA (M. Springmann et al., in preparation) for the baseline dietary
-  intakes.
+- Springmann, M. *Global dietary estimates for conducting health, environmental
+  and economic impact assessments.* Nature Food (2026),
+  [doi:10.1038/s43016-026-01388-z](https://doi.org/10.1038/s43016-026-01388-z);
+  dataset Zenodo
+  [10.5281/zenodo.20818140](https://doi.org/10.5281/zenodo.20818140) (GDD-IA —
+  the baseline dietary intakes).
 - GLADE (baseline-diet construction) — model snapshot Zenodo
   [10.5281/zenodo.20618170](https://doi.org/10.5281/zenodo.20618170); model-output
   data Zenodo [10.5281/zenodo.20617942](https://doi.org/10.5281/zenodo.20617942).

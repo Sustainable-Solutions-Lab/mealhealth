@@ -98,7 +98,7 @@ Build the site locally with `uv run --group docs sphinx-build -b html docs docs/
 The **source code** is licensed **GPL-3.0-or-later**. However, the **bundled
 data** carries a **non-commercial** restriction, which comes from IHME GBD; the
 other sources (UN World Population Prospects, the GDD-IA dietary data) are more
-permissive. The distributed package *as a whole* is therefore for
+permissive — GDD-IA is CC BY 4.0. The distributed package *as a whole* is therefore for
 **non-commercial research, teaching and private study, with attribution** — the
 GPL on the code does *not* grant unrestricted reuse of the bundled data. See
 [`docs/data_sources.md`](docs/data_sources.md).

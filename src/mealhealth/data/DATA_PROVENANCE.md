@@ -34,6 +34,8 @@ Per-country baseline daily intake per risk-factor group (model basis).
 `country, risk_factor, intake_g_per_day`
 - `red_meat` (unprocessed) and `processed_meat` are split via the GDD-IA
   processed-meat fraction; their sum is the combined red-meat intake.
+- GDD-IA = Global Dietary Database for Impact Assessments (Springmann 2026,
+  doi:10.1038/s43016-026-01388-z; data CC-BY-4.0 at doi:10.5281/zenodo.20818140).
 
 ## `baseline_calories.csv`
 `country, kcal_per_day` — total baseline daily dietary energy (GDD-IA all-food
