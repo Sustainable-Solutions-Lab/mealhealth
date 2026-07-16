@@ -33,7 +33,7 @@ from a different source:
 | Bundled file              | Built from | Upstream terms |
 |---------------------------|------------|----------------|
 | `relative_risks.csv`      | IHME GBD 2023 Burden-of-Proof dose–response curves (age structure from GBD 2019); red-meat curve from literature meta-analyses | IHME non-commercial |
-| `mortality.csv`           | WHO Global Health Estimates 2021 cause-specific death rates (2020) | WHO dataset terms (CC BY 4.0 unless otherwise indicated) |
+| `mortality.csv`           | WHO Global Health Estimates 2021 cause-specific death rates (2020) | Custom WHO dataset terms for public-health use; redistribution permitted with attribution |
 | `standard_life_table.csv` | IHME GBD 2023 theoretical minimum-risk life table | IHME non-commercial |
 | `baseline_nutrients.csv`  | Dietary files from IHME GBD 2023 Risk Exposure Estimates 1990–2023 + UN WPP weights | IHME non-commercial / CC BY 3.0 IGO |
 | `baseline_mediators.csv`  | High-sodium and high-SBP files from IHME GBD 2023 Risk Exposure Estimates 1990–2023 | IHME non-commercial |
@@ -123,8 +123,22 @@ Member State row for them.
 
 See WHO's [cause-of-death
 methods](https://cdn.who.int/media/docs/default-source/gho-documents/global-health-estimates/ghe2021_cod_methods.pdf)
-and [dataset terms](https://data.who.int/about/data/terms-and-conditions). The
+and [Terms and Conditions of Use for WHO Data Compilations, Aggregations,
+Evaluations and
+Analyses](https://www.who.int/about/policies/publishing/data-policy/terms-and-conditions).
+These are custom WHO dataset terms, not represented here as a Creative Commons
+licence. They permit extraction, redistribution, and inclusion in other
+products for public-health purposes, subject to attribution and the other
+stated conditions. Copyright in the source dataset remains with WHO. The
 cached raw table is not bundled in the package.
+
+**Attribution:** World Health Organization. *Global Health Estimates 2021:
+Deaths by Cause, Age, Sex, by Country and by Region, 2000–2021*. Geneva: World
+Health Organization; 2024. Accessed 15 July 2026. The `source_country` column
+in `mortality.csv` identifies and acknowledges the WHO source country used for
+every record. The table was extracted and processed by mealhealth as described
+above; neither WHO nor the represented countries endorse mealhealth or its
+analyses.
 
 #### Compatibility check against the previous IHME input
 
@@ -351,8 +365,10 @@ the builder to fetch from that source.
 - **Bundled data:** governed as a whole by
   `LICENSES/LicenseRef-MealHealth-NonCommercial-Data.txt`. The binding
   restriction is **non-commercial**, and it comes from **IHME GBD** — the
-  relative risks, mortality, reference life table and nutrient exposure are all
-  under the IHME Free-of-Charge Non-commercial User Agreement. The other
+  relative risks, reference life table, and nutrient and mediator exposures are
+  under the IHME Free-of-Charge Non-commercial User Agreement. WHO mortality is
+  governed separately by the custom WHO dataset terms linked above, which
+  permit redistribution for public-health purposes with attribution. The other
   components are more permissive: UN WPP is CC BY 3.0 IGO; the GDD-IA-derived
   diet data is CC BY 4.0 (attribution-only); NHANES is public domain.
 
@@ -378,8 +394,9 @@ licence and regenerate the data themselves.
 3. **The baseline diet derives from GDD-IA, which is CC BY 4.0.** It imposes no
    restriction beyond attribution to Springmann (2026) — the non-commercial
    restriction on the bundled data comes from IHME GBD alone.
-4. **Attribution to preserve when publishing:** IHME GBD, UN WPP (CC BY 3.0
-   IGO), GDD-IA (Springmann 2026), and GLADE.
+4. **Attribution to preserve when publishing:** IHME GBD, WHO GHE and the
+   represented source countries, UN WPP (CC BY 3.0 IGO), GDD-IA (Springmann
+   2026), and GLADE.
 
 ## Citing these data
 
@@ -394,6 +411,11 @@ When publishing results, cite:
 - Global Burden of Disease Collaborative Network, *GBD 2023 Demographics
   1950–2023*, IHME —
   <https://ghdx.healthdata.org/record/ihme-data/gbd-2023-demographics-1950-2023>.
+- World Health Organization, *Global Health Estimates 2021: Deaths by Cause,
+  Age, Sex, by Country and by Region, 2000–2021*. Geneva: WHO; 2024. Accessed
+  15 July 2026. Used under the [WHO dataset
+  terms](https://www.who.int/about/policies/publishing/data-policy/terms-and-conditions);
+  source countries are identified by `source_country` in the bundled table.
 - United Nations, *World Population Prospects* — <https://population.un.org/wpp/>.
 - Springmann, M. *Global dietary estimates for conducting health, environmental
   and economic impact assessments.* Nature Food (2026),

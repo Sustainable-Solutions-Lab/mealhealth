@@ -92,6 +92,12 @@ colorectal cancer, stomach cancer, and chronic kidney disease. The last is the
 sum of WHO cause IDs 1272 and 1273. WHO's single `85+` rate is repeated over
 the model's `85–89`, `90–94`, and `95+` bands. Five places without a WHO Member
 State row use the documented country proxies in `docs/data_sources.md`.
+The WHO source country used for each record is retained in `source_country`.
+Source attribution: World Health Organization, *Global Health Estimates 2021:
+Deaths by Cause, Age, Sex, by Country and by Region, 2000–2021*, Geneva: WHO,
+2024; accessed 15 July 2026. Extracted and processed by mealhealth under the
+[WHO dataset terms](https://www.who.int/about/policies/publishing/data-policy/terms-and-conditions);
+use does not imply endorsement by WHO or by represented countries.
 Bundled SHA-256:
 `151927d27d29734e565019678aaecc642aaa85dfe463ef91b663649fc54043af`.
 
