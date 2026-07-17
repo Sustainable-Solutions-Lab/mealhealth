@@ -97,25 +97,21 @@ class CountryBurden:
                 "available ISO3 codes."
             )
 
-        bi = data.baseline_intake()
-        self.baseline: dict[str, float] = dict(
-            bi.loc[
-                bi["country"] == country, ["risk_factor", "intake_g_per_day"]
-            ].itertuples(index=False, name=None)
-        )
-        bn = data.baseline_nutrients()
-        nutrient_baseline = dict(
-            bn.loc[
-                bn["country"] == country, ["nutrient", "intake_g_per_day"]
-            ].itertuples(index=False, name=None)
-        )
-        missing_nutrients = set(DIRECT_NUTRIENT_FACTORS) - set(nutrient_baseline)
-        if missing_nutrients:
-            raise ValueError(
-                f"Bundled nutrient baseline missing {country}: "
-                f"{sorted(missing_nutrients)}"
+        exposure = data.baseline_exposure()
+        country_exposure = exposure[exposure["country"] == country]
+        self.baseline = dict(
+            country_exposure[["risk_factor", "exposure_g_per_day"]].itertuples(
+                index=False, name=None
             )
-        self.baseline.update(nutrient_baseline)
+        )
+        missing_exposure = (set(RISK_FACTORS) | set(DIRECT_NUTRIENT_FACTORS)) - set(
+            self.baseline
+        )
+        if missing_exposure:
+            raise ValueError(
+                f"Bundled direct exposure baseline missing {country}: "
+                f"{sorted(missing_exposure)}"
+            )
         cal = data.baseline_calories()
         self.baseline_kcal = float(
             cal.loc[cal["country"] == country, "kcal_per_day"].iloc[0]

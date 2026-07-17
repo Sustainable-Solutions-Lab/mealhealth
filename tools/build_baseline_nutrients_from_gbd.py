@@ -30,7 +30,7 @@ import pycountry
 ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = ROOT / "data" / "raw"
 OUT_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_nutrients.csv"
-BASELINE_INTAKE_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_intake.csv"
+BASELINE_INTAKE_PATH = ROOT / "tools" / "reference" / "baseline_country_sources.csv"
 LOCATION_HIERARCHY_PATH = RAW_DIR / "IHME_GBD_2021_A1_HIERARCHIES_Y2024M05D15.XLSX"
 LOCATION_HIERARCHY_URL = (
     "https://www.healthdata.org/sites/default/files/2024-05/"

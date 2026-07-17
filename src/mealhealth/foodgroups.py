@@ -103,7 +103,7 @@ FOOD_GROUPS: dict[str, FoodGroup] = {
     "processed_meat": FoodGroup(
         "processed_meat",
         "Processed meat",
-        "fresh raw weight (retail)",
+        "as-eaten product weight",
         "Meat preserved by smoking, curing, salting or chemical preservatives "
         "(bacon, ham, sausages, deli meats).",
         harmful=True,
