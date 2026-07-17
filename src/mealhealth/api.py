@@ -77,7 +77,7 @@ def assess_meal(
         Optional elemental sodium in the complete meal, in milligrams. Include
         sodium from ingredients, sauces, cooking salt, and table salt. ``None``
         omits sodium entirely; ``0.0`` explicitly models a sodium-free meal
-        that displaces the country baseline. The current prototype uses a
+        that displaces the country baseline. The sodium calculation uses a
         central country-age-sex mean-shift approximation through systolic blood
         pressure and does not model within-stratum exposure distributions.
 

@@ -144,7 +144,7 @@ MEDIATOR_FACTORS: dict[str, NutrientFactor] = {
         "mg",
         0.001,
         "Elemental dietary sodium from ingredients, cooking salt, sauces, and "
-        "table salt. The prototype converts it to 24-hour urinary sodium and "
+        "table salt. The model converts it to 24-hour urinary sodium and "
         "models a mean systolic-blood-pressure shift.",
         harmful=True,
     )

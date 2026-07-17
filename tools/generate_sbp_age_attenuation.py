@@ -50,9 +50,9 @@ ADULT_AGE_COLUMNS = {
 }
 REFERENCE_AGE = "60-64"
 
-# The all-stroke BoP curve uses the ischemic-stroke age shape for this
-# transparent prototype. WHO haemorrhagic stroke receives the same resulting
-# sodium risk ratio, matching the selected all-stroke curve.
+# The all-stroke BoP curve uses the ischemic-stroke age shape. WHO haemorrhagic
+# stroke receives the same resulting sodium risk ratio, matching the selected
+# all-stroke curve.
 OUTCOME_ROWS = {
     "CHD": "Ischaemic heart disease",
     "Stroke": "Ischaemic stroke",

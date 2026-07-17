@@ -62,7 +62,7 @@ age group, and sex in 2020.
   proxy, `source_country=FRA`; every other row uses its own country.
 - The `lower` and `upper` values are marginal uncertainty bounds on the GBD
   modeled stratum mean. They are not within-stratum quantiles and do not supply
-  a usual-SBP standard deviation. The central prototype uses the means only; a
+  a usual-SBP standard deviation. The runtime uses the means only; a
   future distributional mediator would require additional input.
 - Built by `tools/build_baseline_mediators_from_gbd.py` from the pinned high-
   sodium (`0ea88321…`) and high-SBP (`dd317224…`) files in GBD 2023 Risk

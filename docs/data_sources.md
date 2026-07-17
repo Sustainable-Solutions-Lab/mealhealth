@@ -221,10 +221,10 @@ The builder joins 2020 urinary-sodium and high-SBP exposure at country × adult
 age × sex resolution. `baseline_mediators.csv` retains each modeled stratum
 mean and its marginal uncertainty bounds. Those bounds quantify uncertainty in
 the mean; they are not exposure quantiles across people and cannot supply the
-within-stratum usual-SBP standard deviation. The public prototype intentionally
-evaluates risk at the stratum mean. The bounds are retained for provenance but
-are not propagated into its central result. A future distributional model
-would require within-stratum exposure data that these files do not provide.
+within-stratum usual-SBP standard deviation. The model evaluates risk at the
+stratum mean. The bounds are retained for provenance but are not propagated
+into the central result. A distributional model would require within-stratum
+exposure data that these files do not provide.
 
 ### Sodium and SBP relative-risk curves
 

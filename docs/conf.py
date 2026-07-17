@@ -27,6 +27,7 @@ extensions = [
     "sphinx.ext.napoleon",  # understand the NumPy-style docstrings
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",  # link out to numpy/pandas/python docs
+    "sphinx.ext.mathjax",  # render mathematical notation in HTML
     "sphinx.ext.viewcode",  # "[source]" links in the API reference
     "sphinx_copybutton",  # copy button on code blocks
 ]
@@ -49,6 +50,7 @@ intersphinx_mapping = {
 myst_enable_extensions = [
     "colon_fence",  # ::: fenced directives
     "deflist",
+    "dollarmath",  # $inline$ and $$display$$ mathematics
     "smartquotes",
     "substitution",
     "tasklist",

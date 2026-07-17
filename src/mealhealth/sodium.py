@@ -13,7 +13,7 @@ import numpy as np
 from . import data
 
 # Central values pinned and validated against tools/reference/sodium_to_sbp.json.
-# The prototype reports no sodium uncertainty interval.
+# The runtime reports no sodium uncertainty interval.
 SODIUM_URINARY_RECOVERY = 0.928
 SODIUM_TMREL_LOW_G_PER_DAY = 1.0
 SODIUM_TMREL_HIGH_G_PER_DAY = 5.0
@@ -47,7 +47,7 @@ class SodiumStratumEffect:
 
 
 class SodiumMeanShiftModel:
-    """Real-data central sodium model used by the public prototype API.
+    """Deterministic central sodium mean-shift model.
 
     This is a mean-field approximation: each stratum is represented by its GBD
     mean urinary sodium and mean SBP. It does not reconstruct the distribution

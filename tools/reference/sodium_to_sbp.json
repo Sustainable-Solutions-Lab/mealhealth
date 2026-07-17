@@ -8,7 +8,7 @@
     "ci_upper": 0.950,
     "source": "Lucko et al. 2018",
     "doi": "10.1111/jch.13353",
-    "note": "Central prototype uses the pooled mean; uncertainty is not propagated."
+    "note": "The runtime uses the pooled mean; uncertainty is not propagated."
   },
   "sodium_tmrel": {
     "distribution": "uniform",

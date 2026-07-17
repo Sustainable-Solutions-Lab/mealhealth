@@ -40,8 +40,8 @@ print("By cause:", result.delta_paf_total)      # per-cause % risk change
   separate group**.
 * **Optional nutrient factors:** seafood omega-3 (EPA + DHA, excluding ALA)
   and elemental sodium, both supplied explicitly in mg per meal. Sodium is a
-  labelled country-age-sex mean-shift prototype mediated through systolic
-  blood pressure.
+  deterministic country-age-sex mean-shift mediated through systolic blood
+  pressure; it does not model within-stratum exposure distributions.
 * **Diseases:** the food-group model covers coronary heart disease (CHD),
   ischemic stroke, type-2 diabetes (T2DM), and colorectal cancer (CRC). Sodium
   additionally covers stomach cancer, haemorrhagic stroke, and chronic kidney

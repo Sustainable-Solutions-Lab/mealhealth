@@ -7,7 +7,7 @@
 
 The Burden-of-Proof API is public and requires no authenticated GBD download.
 This builder validates the expected unit and evidence rating for every selected
-curve before writing the compact all-age curve table used by the prototype.
+curve before writing the compact all-age curve table used by the runtime.
 
 Run from the repository root::
 
