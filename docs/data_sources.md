@@ -140,22 +140,6 @@ every record. The table was extracted and processed by mealhealth as described
 above; neither WHO nor the represented countries endorse mealhealth or its
 analyses.
 
-#### Compatibility check against the previous IHME input
-
-Before switching the bundled table, the 2020 WHO female rates were compared
-with the available 2020 IHME GBD 2023 female export. Intracerebral and
-subarachnoid haemorrhage were summed to WHO haemorrhagic stroke, the four IHME
-CKD etiologies were summed to WHO chronic kidney disease, and the three IHME
-old-age bands were population-weighted to WHO's `85+` band. Across the 170
-directly matched package countries and adult age strata, cause-specific rate
-correlations ranged from 0.76 to 0.92. WPP-weighted adult death totals were
-within 9% for CKD, colorectal cancer, stomach cancer, ischemic stroke, and
-diabetes, and within 13% for CHD and haemorrhagic stroke; the combined WHO
-total was about 8% higher. For the USA, cause totals ranged from 23% lower
-(CKD) to 9% higher (CHD). These differences are acceptable for a source
-change between independently modeled burden series and show no unit or
-dimension mismatch.
-
 ### Reference life table (`standard_life_table.csv`, manual)
 
 Download **Theoretical minimum risk life table** from the
@@ -323,10 +307,7 @@ GDD-IA is **published and openly licensed (CC-BY-4.0)**:
 - Dataset — Zenodo [10.5281/zenodo.20818140](https://doi.org/10.5281/zenodo.20818140)
   (CC-BY-4.0; 1990–2020 in five-year steps, downloadable without an account)
 
-It was previously obtained by personal correspondence and shipped here by
-permission ahead of release; that is no longer the case, and **no permission is
-now needed** — attribution under CC-BY-4.0 suffices. The data itself is
-unchanged by publication, so the committed CSVs are unaffected.
+No separate permission is needed; attribution under CC-BY-4.0 suffices.
 
 GLADE is likewise published:
 

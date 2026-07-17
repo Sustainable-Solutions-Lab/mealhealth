@@ -51,14 +51,14 @@ print(result.summary())
 
 ```python
 result.delta_yll_local_total # net ΔYLL using the country's life table
-result.delta_yll_total       # backward-compatible alias for the local total
+result.delta_yll_total       # alias for delta_yll_local_total
 result.delta_yll_standard_total # potential ΔYLL using the GBD reference table
 result.causes               # cause -> CauseResult with local/standard PAF/YLL/RR
 result.delta_paf_local_total # dict cause -> local-weighted PAF
 result.delta_paf_standard_total # dict cause -> standard-weighted PAF
-result.delta_paf_total       # backward-compatible alias for local PAFs
+result.delta_paf_total       # alias for delta_paf_local_total
 result.risk_attribution_local # active factor -> local ΔYLL (sums to local total)
-result.risk_attribution       # backward-compatible alias for local attribution
+result.risk_attribution       # alias for risk_attribution_local
 result.risk_attribution_standard # same decomposition for GBD-standard ΔYLL
 result.f                    # baseline scaling factor used
 result.exposure             # substituted-diet exposures per group

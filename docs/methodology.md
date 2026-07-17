@@ -130,8 +130,7 @@ Every assessment reports two versions:
 
 * `delta_yll_local_total` uses remaining life expectancy from the country's UN
   WPP period life table. It estimates years gained or lost under current local
-  mortality conditions. The original `delta_yll_total` name remains as a
-  backward-compatible alias.
+  mortality conditions. `delta_yll_total` is an alias for this value.
 * `delta_yll_standard_total` uses the common GBD 2023 theoretical minimum-risk
   reference life table. It measures potential years gained or lost relative to
   GBD's aspirational longevity standard and is the appropriate output for
@@ -274,6 +273,6 @@ result, so it still requires bundled mortality, population, and life tables.
   Chan et al. 2011 for CRC), which are calibrated on *unprocessed* red meat and
   thus appropriate now that processed meat is separated out. Processed meat uses
   the GBD 2023 Burden-of-Proof dose–response curves directly (CHD/T2DM/CRC; no
-  ischemic stroke curve). `nuts_seeds` maps to CHD only, since GBD 2023 no longer
-  links it to T2DM. Seafood omega-3 uses the GBD 2023 CHD curve directly and is
-  clipped at its 0.565 g/day midpoint TMREL.
+  ischemic stroke curve). `nuts_seeds` maps to CHD only because GBD 2023 does
+  not provide a T2DM curve. Seafood omega-3 uses the GBD 2023 CHD curve
+  directly and is clipped at its 0.565 g/day midpoint TMREL.

@@ -339,22 +339,22 @@ class CauseResult:
 
     @property
     def paf(self) -> float:
-        """Backward-compatible alias for :attr:`paf_local`."""
+        """Alias for :attr:`paf_local`."""
         return self.paf_local
 
     @property
     def delta_yll(self) -> float:
-        """Backward-compatible alias for :attr:`delta_yll_local`."""
+        """Alias for :attr:`delta_yll_local`."""
         return self.delta_yll_local
 
     @property
     def rr_baseline(self) -> float:
-        """Backward-compatible alias for :attr:`rr_baseline_local`."""
+        """Alias for :attr:`rr_baseline_local`."""
         return self.rr_baseline_local
 
     @property
     def rr_meal(self) -> float:
-        """Backward-compatible alias for :attr:`rr_meal_local`."""
+        """Alias for :attr:`rr_meal_local`."""
         return self.rr_meal_local
 
 
@@ -378,12 +378,12 @@ class MealAssessment:
 
     @property
     def delta_yll_total(self) -> float:
-        """Backward-compatible alias for :attr:`delta_yll_local_total`."""
+        """Alias for :attr:`delta_yll_local_total`."""
         return self.delta_yll_local_total
 
     @property
     def risk_attribution(self) -> dict[str, float]:
-        """Backward-compatible alias for :attr:`risk_attribution_local`."""
+        """Alias for :attr:`risk_attribution_local`."""
         return self.risk_attribution_local
 
     @property
@@ -398,7 +398,7 @@ class MealAssessment:
 
     @property
     def delta_paf_total(self) -> dict[str, float]:
-        """Backward-compatible alias for :attr:`delta_paf_local_total`."""
+        """Alias for :attr:`delta_paf_local_total`."""
         return self.delta_paf_local_total
 
     def summary(self) -> str:

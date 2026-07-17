@@ -87,9 +87,9 @@ def assess_meal(
         Has ``delta_yll_local_total`` and ``delta_yll_standard_total`` (years
         gained if positive, lost if negative), a per-cause ``causes``
         breakdown, matching local and standard risk attribution, the
-        substitution factor ``f``, and a ``summary()`` method. The legacy
-        ``delta_yll_total`` and ``risk_attribution`` names remain aliases for
-        their local variants.
+        substitution factor ``f``, and a ``summary()`` method.
+        ``delta_yll_total`` and ``risk_attribution`` alias their local
+        variants.
     """
     return assess(
         meal,
