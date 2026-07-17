@@ -255,22 +255,6 @@ not publish standalone aortic-aneurysm or peripheral-arterial-disease rates, so
 those sodium pathways are excluded instead of applying a risk curve to WHO's
 much broader residual circulatory category.
 
-### Sodium scale check
-
-Applying the implemented uniform 1–5 g/day urinary-sodium TMREL to the 2020
-baseline gives about 25,300 sodium-attributable deaths per year in the USA and
-1.35 million across the package's 175 countries. These are useful scale checks,
-not calibration targets. [Micha et al.
-(2017)](https://jamanetwork.com/journals/jama/fullarticle/2608221) estimated
-66,508 US cardiometabolic deaths in 2012, [Mozaffarian et al.
-(2014)](https://www.nejm.org/doi/full/10.1056/NEJMoa1304127) estimated 1.65
-million global cardiovascular deaths in 2010, and [GBD
-2021](https://www.healthdata.org/sites/default/files/disease_and_injury/gbd_2021/topic_pdf/risk/124.pdf)
-reported about 1.86 million global deaths. Their 2 g/day reference exposures,
-outcome sets, exposure distributions, years, and burden sources differ from
-this mean-shift calculation. The difference is reported as a scale check; the
-model coefficients are not tuned to close it.
-
 ## 6. Relative-only fallback
 
 `relative_only=True` reports just the per-cause PAFs and suppresses absolute
