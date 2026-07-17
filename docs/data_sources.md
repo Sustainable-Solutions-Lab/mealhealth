@@ -163,7 +163,7 @@ medium variant) into `data/raw/` if absent:
 
 `baseline_exposure.csv` is built by `tools/build_baseline_exposure.py`, directly
 from the seven food-group and seafood omega-3 GBD/WPP inputs. It has no
-dependency on the old GLADE reconciliation. `baseline_calories.csv` is built by
+dependency on any sibling project. `baseline_calories.csv` is built by
 `tools/build_baseline_calories.py` from the public GDD-IA calorie table and WPP.
 
 ### Obtaining the risk-exposure files (manual)
@@ -267,8 +267,8 @@ adult mean, population-weighted over WPP age/sex strata; French Guiana is the
 only GBD exposure proxy. Calories use GDD-IA's `all-fg`, `BTH`, `all-u`, 2020
 mean rows for age bands 20–39, 40–64, and 65+, reweighted to ages 25+ with WPP.
 
-The old GLADE reconciliation remains available only as a temporary historical
-builder; it is no longer a runtime or canonical-data dependency.
+The baseline is fully reproducible from the staged GBD, GDD-IA, and WPP inputs;
+no sibling project or private checkout is required.
 
 ### Attribution
 
@@ -293,35 +293,14 @@ GDD-IA is **published and openly licensed (CC-BY-4.0)**:
 
 No separate permission is needed; attribution under CC-BY-4.0 suffices.
 
-GLADE is likewise published:
-
-- GLADE model snapshot — Zenodo [10.5281/zenodo.20618170](https://doi.org/10.5281/zenodo.20618170)
-- GLADE model-output data — Zenodo [10.5281/zenodo.20617942](https://doi.org/10.5281/zenodo.20617942)
-
-Every input behind the baseline diet is therefore now public. What remains
-non-public is the *reconciliation* itself: `tools/baseline_diet_from_glade.py`
-reads a local GLADE checkout for the merged intake table (NHANES override, GBD
-anchoring, model mass basis), which is not published as a standalone table. The
-committed CSVs remain the canonical copy.
-
-```{note}
-If the baseline diet is deposited with its own DOI, record it here and switch
-the builder to fetch from that source.
-```
-
 ### Limitations
 
-- **It is not, as a whole, regenerable from public data alone.** The builder
-  reads a local GLADE checkout for the reconciled intake table, so — unlike the
-  health/demographic and nutrient files — the committed CSVs are the only public
-  copy of *this* product. Its inputs are all public, but the merge is not
-  reproducible without GLADE.
-- **The processed/unprocessed red-meat split** comes from the GDD-IA
-  processed-meat fraction. This part *is* now independently reproducible from
-  the public Zenodo record (GLADE fetches it automatically).
-- **Alternative public source.** A food-level baseline diet is already in the
-  CC-BY-4.0 GLADE model-output deposit,
-  [Zenodo 10.5281/zenodo.20617942](https://doi.org/10.5281/zenodo.20617942).
+- **GBD means are not full exposure distributions.** The runtime evaluates
+  nonlinear curves at country-level means rather than integrating over the GBD
+  exposure distributions.
+- **Calorie proxies are explicit approximations.** They are recorded in the
+  source manifest and should not be interpreted as country-specific survey
+  estimates.
 
 ## Licensing
 
@@ -360,8 +339,8 @@ licence and regenerate the data themselves.
    restriction beyond attribution to Springmann (2026) — the non-commercial
    restriction on the bundled data comes from IHME GBD alone.
 4. **Attribution to preserve when publishing:** IHME GBD, WHO GHE and the
-   represented source countries, UN WPP (CC BY 3.0 IGO), GDD-IA (Springmann
-   2026), and GLADE.
+   represented source countries, UN WPP (CC BY 3.0 IGO), and GDD-IA (Springmann
+   2026).
 
 ## Citing these data
 
@@ -388,9 +367,6 @@ When publishing results, cite:
   dataset Zenodo
   [10.5281/zenodo.20818140](https://doi.org/10.5281/zenodo.20818140) (GDD-IA —
   the baseline dietary intakes).
-- GLADE (baseline-diet construction) — model snapshot Zenodo
-  [10.5281/zenodo.20618170](https://doi.org/10.5281/zenodo.20618170); model-output
-  data Zenodo [10.5281/zenodo.20617942](https://doi.org/10.5281/zenodo.20617942).
 - Bechthold et al. 2019; Li et al. 2024; Chan et al. 2011 (red-meat relative
   risks).
 ```

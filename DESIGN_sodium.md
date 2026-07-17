@@ -569,7 +569,7 @@ Recommended bundled outputs:
   named correlation scenarios.
 
 Do not aggregate sodium into the current one-row-per-country
-`baseline_nutrients.csv`; that would discard exactly the strata the mediator
+`baseline_exposure.csv`; that would discard exactly the strata the mediator
 model needs. A country-wide mean may still be exposed as a display summary.
 
 ### Evidence audit of the remaining SBP gate
@@ -698,7 +698,7 @@ reverse-engineered from joint hypertension prevalence remains unacceptable.
    distinguishes `direct_curve` factors (currently omega-3) from `mediator`
    factors (sodium), while `nutrient_factors()` exposes both. Only direct-curve
    factors participate in the strict one-row-per-country
-   `baseline_nutrients.csv` coverage check; sodium loads its stratum baseline
+`baseline_exposure.csv` coverage check; sodium loads its stratum baseline
    from `baseline_mediators.csv`. Do not add a fake country-mean sodium row merely
    to satisfy the current loader.
 3. Add a mediator abstraction rather than sodium conditionals scattered through

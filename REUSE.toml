@@ -7,9 +7,8 @@ version = 1
 [[annotations]]
 path = [
     "src/mealhealth/data/baseline_calories.csv",
-    "src/mealhealth/data/baseline_intake.csv",
+    "src/mealhealth/data/baseline_exposure.csv",
     "src/mealhealth/data/baseline_mediators.csv",
-    "src/mealhealth/data/baseline_nutrients.csv",
     "src/mealhealth/data/local_life_table.csv",
     "src/mealhealth/data/population.csv",
     "src/mealhealth/data/relative_risks.csv",

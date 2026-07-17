@@ -19,8 +19,8 @@ Upstream sources and their terms:
 
 2. GDD-IA, the Global Dietary Database for Impact Assessments (Springmann M.,
    Nature Food, 2026; https://doi.org/10.1038/s43016-026-01388-z) — baseline
-   per-country food-group intakes, the processed/unprocessed red-meat split,
-   and total dietary energy, as constructed by the GLADE project.
+   direct food-group exposures, seafood omega-3 exposure, and total dietary
+   energy.
    Licence: Creative Commons Attribution 4.0 International (CC-BY-4.0), as
    published at https://doi.org/10.5281/zenodo.20818140. Only a reduced,
    derived product is bundled here. Attribute to Springmann M. (GDD-IA).
@@ -44,5 +44,5 @@ covers the code, not these data files, and does not grant any commercial-use or
 unrestricted-redistribution rights over them.
 
 No warranty is provided. When publishing results, cite GBD (IHME), WHO GHE,
-GDD-IA (Springmann 2026), UN WPP, and GLADE, as described in
+GDD-IA (Springmann 2026), and UN WPP, as described in
 docs/data_sources.md.

@@ -25,7 +25,6 @@ tools/prepare_data.py              # regenerate health/demographic data from raw
 tools/build_baseline_exposure.py        # build GBD/WPP direct baselines
 tools/build_baseline_calories.py        # build GDD-IA/WPP calorie baselines
 tools/generate_rr_age_attenuation.py # one-off: curated RR age-attenuation table from GBD 2019
-tools/baseline_diet_from_glade.py  # build baseline diet (temporary; see docstring)
 tools/reference/*.csv              # curated regeneration inputs (red-meat RR, TMREL, age attenuation)
 tests/                  # pytest suite
 docs/                   # Sphinx site: conf.py + Markdown pages (MyST), built with furo
@@ -90,8 +89,7 @@ food-group files plus seafood EPA+DHA in the official GBD 2023 Risk Exposure
 Estimates, using WPP population weights. `baseline_calories.csv` is built from
 the public GDD-IA 2020 calorie table and WPP weights. The checked-in source
 manifest under `tools/reference/` pins the 175-country target set and proxies.
-The old `tools/baseline_diet_from_glade.py` remains only as a temporary
-historical bootstrap; GLADE is not a runtime or canonical-data dependency.
+There is no sibling-project runtime or regeneration dependency.
 
 ## Validation
 

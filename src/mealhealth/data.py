@@ -77,20 +77,6 @@ def baseline_exposure() -> pd.DataFrame:
 
 
 @lru_cache(maxsize=1)
-def baseline_intake() -> pd.DataFrame:
-    """Compatibility view of food-group rows from :func:`baseline_exposure`."""
-    return (
-        baseline_exposure()
-        .loc[
-            baseline_exposure()["risk_factor"].isin(RISK_FACTORS),
-            ["country", "risk_factor", "exposure_g_per_day"],
-        ]
-        .rename(columns={"exposure_g_per_day": "intake_g_per_day"})
-        .reset_index(drop=True)
-    )
-
-
-@lru_cache(maxsize=1)
 def baseline_calories() -> pd.DataFrame:
     """country, kcal_per_day (total baseline daily energy)."""
     df = _read("baseline_calories.csv")
@@ -109,66 +95,6 @@ def baseline_calories() -> pd.DataFrame:
     values = pd.to_numeric(df["kcal_per_day"], errors="coerce")
     if not np.isfinite(values).all() or (values < 0).any():
         raise ValueError("Bundled calories must be finite and non-negative")
-    return df
-
-
-@lru_cache(maxsize=1)
-def baseline_nutrients() -> pd.DataFrame:
-    """country, nutrient, intake_g_per_day, source_country, source_year.
-
-    Every supported country must have exactly one finite, non-negative row for
-    every implemented nutrient. This strict load-time check prevents a missing
-    baseline from silently becoming a real zero exposure.
-    """
-    df = (
-        baseline_exposure()
-        .loc[
-            baseline_exposure()["risk_factor"].isin(DIRECT_NUTRIENT_FACTORS),
-            [
-                "country",
-                "risk_factor",
-                "exposure_g_per_day",
-                "source_country",
-                "source_year",
-            ],
-        ]
-        .rename(
-            columns={
-                "risk_factor": "nutrient",
-                "exposure_g_per_day": "intake_g_per_day",
-            }
-        )
-        .reset_index(drop=True)
-    )
-    expected_columns = {
-        "country",
-        "nutrient",
-        "intake_g_per_day",
-        "source_country",
-        "source_year",
-    }
-    if set(df.columns) != expected_columns:
-        raise ValueError(
-            "Invalid bundled baseline_nutrients.csv schema: expected "
-            f"{sorted(expected_columns)}, got {sorted(df.columns)}"
-        )
-    countries = set(baseline_exposure()["country"])
-    expected = {(c, n) for c in countries for n in DIRECT_NUTRIENT_FACTORS}
-    pairs = list(df[["country", "nutrient"]].itertuples(index=False, name=None))
-    actual = set(pairs)
-    if len(pairs) != len(actual) or actual != expected:
-        missing = sorted(expected - actual)
-        extra = sorted(actual - expected)
-        raise ValueError(
-            "Invalid bundled nutrient baseline coverage: "
-            f"missing={missing[:10]}, extra={extra[:10]}, duplicates="
-            f"{len(pairs) - len(actual)}"
-        )
-    values = pd.to_numeric(df["intake_g_per_day"], errors="coerce")
-    if not np.isfinite(values.to_numpy(dtype=float)).all() or not (values >= 0).all():
-        raise ValueError("Bundled nutrient baselines must be finite and non-negative")
-    if set(df["source_year"]) != {2020}:
-        raise ValueError("Bundled nutrient baselines must use source_year 2020")
     return df
 
 

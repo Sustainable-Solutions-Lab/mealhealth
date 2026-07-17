@@ -88,7 +88,7 @@ def test_builder_preserves_strata_bounds_proxy_and_determinism(tmp_path):
     raw, baseline, hierarchy, sodium_source, sbp_source = _synthetic_inputs(tmp_path)
     result = builder.build_baseline_mediators(
         raw_dir=raw,
-        baseline_intake_path=baseline,
+        manifest_path=baseline,
         location_hierarchy_path=hierarchy,
         sodium_source=sodium_source,
         sbp_source=sbp_source,
@@ -142,7 +142,7 @@ def test_builder_rejects_checksum_and_incomplete_join(tmp_path):
     with pytest.raises(ValueError, match="Expected .* source mediator rows"):
         builder.build_baseline_mediators(
             raw_dir=raw,
-            baseline_intake_path=baseline,
+            manifest_path=baseline,
             location_hierarchy_path=hierarchy,
             sodium_source=sodium_source,
             sbp_source=changed,

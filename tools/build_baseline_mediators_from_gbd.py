@@ -312,7 +312,7 @@ def _select_source_cells(
 def build_baseline_mediators(
     *,
     raw_dir: Path = RAW_DIR,
-    baseline_intake_path: Path | None = None,
+    manifest_path: Path = BASELINE_MANIFEST_PATH,
     location_hierarchy_path: Path | None = None,
     sodium_source: ExposureSource = SODIUM_SOURCE,
     sbp_source: ExposureSource = SBP_SOURCE,
@@ -324,14 +324,9 @@ def build_baseline_mediators(
         raw_dir / LOCATION_HIERARCHY_PATH.name
     )
     _ensure_location_hierarchy(location_hierarchy_path)
-    if baseline_intake_path is None:
-        target_countries = sorted(
-            pd.read_csv(BASELINE_MANIFEST_PATH, usecols=["country"])["country"].unique()
-        )
-    else:  # compatibility for focused builder tests and legacy callers
-        target_countries = sorted(
-            pd.read_csv(baseline_intake_path, usecols=["country"])["country"].unique()
-        )
+    target_countries = sorted(
+        pd.read_csv(manifest_path, usecols=["country"])["country"].unique()
+    )
     source_countries = {
         MEDIATOR_COUNTRY_PROXIES.get(country, country) for country in target_countries
     }
