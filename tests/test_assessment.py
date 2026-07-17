@@ -10,7 +10,12 @@ import pytest
 
 import mealhealth as mh
 from mealhealth import data
-from mealhealth.model import CountryBurden, RelativeRiskCurves, _population_log_rr
+from mealhealth.model import (
+    ADULT_AGES,
+    CountryBurden,
+    RelativeRiskCurves,
+    _population_log_rr,
+)
 
 # --------------------------------------------------------------------------
 # Country coverage
@@ -53,12 +58,13 @@ def test_omitted_omega3_preserves_existing_assessment():
     explicit_none = mh.assess_meal(**kwargs, seafood_omega3_mg=None)
     assert "omega3" not in omitted.exposure
     assert "omega3" not in omitted.risk_attribution_local
+    assert "omega3" not in omitted.risk_attribution_standard
     assert explicit_none.delta_yll_local_total == pytest.approx(
         omitted.delta_yll_local_total
     )
-    # Checked against the pre-nutrient implementation: omission must leave the
-    # food-group-only calculation numerically unchanged.
-    assert omitted.delta_yll_local_total == pytest.approx(43490.50936429071)
+    assert explicit_none.delta_yll_standard_total == pytest.approx(
+        omitted.delta_yll_standard_total
+    )
 
 
 # --------------------------------------------------------------------------
@@ -151,17 +157,30 @@ def test_omega3_paf_matches_curve_knot_handcalc(mode, age):
         {}, 0.0, "USA", mode=mode, age=age, seafood_omega3_mg=omega3_mg
     )
     if mode == "population":
-        log_base = _population_log_rr(
-            curves, burden, "omega3", "CHD", baseline, life_table="local"
-        )
-        log_target = _population_log_rr(
-            curves, burden, "omega3", "CHD", target, life_table="local"
+        delta = {"local": 0.0, "standard": 0.0}
+        for age_band in ADULT_AGES:
+            log_base = curves.log_rr("omega3", "CHD", age_band, baseline)
+            log_target = curves.log_rr("omega3", "CHD", age_band, target)
+            paf = 1.0 - math.exp(log_target - log_base)
+            for sex in ("male", "female"):
+                for life_table in ("local", "standard"):
+                    delta[life_table] += (
+                        burden.yll_by_stratum(
+                            "CHD", age_band, sex, life_table=life_table
+                        )
+                        * paf
+                    )
+        expected_local = delta["local"] / burden.total_yll("CHD", life_table="local")
+        expected_standard = delta["standard"] / burden.total_yll(
+            "CHD", life_table="standard"
         )
     else:
         log_base = curves.log_rr("omega3", "CHD", "60-64", baseline)
         log_target = curves.log_rr("omega3", "CHD", "60-64", target)
-    expected_paf = 1.0 - math.exp(log_target - log_base)
-    assert result.causes["CHD"].paf_local == pytest.approx(expected_paf)
+        expected_local = 1.0 - math.exp(log_target - log_base)
+        expected_standard = expected_local
+    assert result.causes["CHD"].paf_local == pytest.approx(expected_local)
+    assert result.causes["CHD"].paf_standard == pytest.approx(expected_standard)
 
 
 # --------------------------------------------------------------------------
@@ -222,6 +241,12 @@ def test_unknown_food_group_raises():
 def test_age_mode_requires_age():
     with pytest.raises(ValueError):
         mh.assess_meal({"vegetables": 100}, 200, "USA", mode="age")
+
+
+@pytest.mark.parametrize("age", [24.9, -1, float("nan"), float("inf"), "unknown"])
+def test_age_mode_rejects_values_outside_adult_risk_curves(age):
+    with pytest.raises(ValueError, match="at least 25"):
+        mh.assess_meal({"vegetables": 100}, 200, "USA", mode="age", age=age)
 
 
 # --------------------------------------------------------------------------

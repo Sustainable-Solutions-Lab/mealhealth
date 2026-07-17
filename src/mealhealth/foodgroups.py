@@ -9,8 +9,8 @@ relative risk of one or more diseases. A meal is described to the tool in terms
 of grams of each of these groups (plus a total calorie figure). Foods that fall
 outside every risk group (poultry, eggs, oils, refined grains, etc.) do not
 enter the food-group calculation directly; they affect the result only through
-caloric displacement of the baseline diet. Seafood EPA+DHA can additionally be
-supplied as an optional nutrient factor.
+caloric displacement of the baseline diet. Seafood EPA+DHA and elemental
+sodium can additionally be supplied as optional nutrient factors.
 
 Mass basis
 ----------
@@ -124,7 +124,7 @@ RISK_FACTORS: tuple[str, ...] = (
 
 #: Optional nutrient risk factors. Values enter the public API in ``api_unit``
 #: per daily meal and are converted to the model's g/day exposure axis.
-NUTRIENT_FACTORS: dict[str, NutrientFactor] = {
+DIRECT_NUTRIENT_FACTORS: dict[str, NutrientFactor] = {
     "omega3": NutrientFactor(
         "omega3",
         "Seafood omega-3 (EPA + DHA)",
@@ -135,19 +135,51 @@ NUTRIENT_FACTORS: dict[str, NutrientFactor] = {
     )
 }
 
+#: Optional nutrient factors whose health effects are evaluated through a
+#: stratum-resolved mediator rather than a direct country-level baseline.
+MEDIATOR_FACTORS: dict[str, NutrientFactor] = {
+    "sodium": NutrientFactor(
+        "sodium",
+        "Sodium",
+        "mg",
+        0.001,
+        "Elemental dietary sodium from ingredients, cooking salt, sauces, and "
+        "table salt. The model converts it to 24-hour urinary sodium and "
+        "models a mean systolic-blood-pressure shift.",
+        harmful=True,
+    )
+}
+
+#: Every optional nutrient exposed by the public API.
+NUTRIENT_FACTORS: dict[str, NutrientFactor] = {
+    **DIRECT_NUTRIENT_FACTORS,
+    **MEDIATOR_FACTORS,
+}
+
 #: Every factor for which bundled baseline and relative-risk data exist. An
 #: assessment uses all selected food groups plus only nutrients explicitly
 #: supplied by the caller.
 MODEL_RISK_FACTORS: tuple[str, ...] = RISK_FACTORS + tuple(NUTRIENT_FACTORS)
 
 #: Disease causes modelled.
-CAUSES: tuple[str, ...] = ("CHD", "Stroke", "T2DM", "CRC")
+CAUSES: tuple[str, ...] = (
+    "CHD",
+    "Stroke",
+    "T2DM",
+    "CRC",
+    "StomachCancer",
+    "HaemorrhagicStroke",
+    "CKD",
+)
 
 CAUSE_LABELS: dict[str, str] = {
     "CHD": "Coronary (ischemic) heart disease",
     "Stroke": "Ischemic stroke",
     "T2DM": "Type 2 diabetes mellitus",
     "CRC": "Colorectal cancer",
+    "StomachCancer": "Stomach cancer",
+    "HaemorrhagicStroke": "Haemorrhagic stroke",
+    "CKD": "Chronic kidney disease",
 }
 
 #: Ordered age buckets shared by all per-age data (population, mortality,

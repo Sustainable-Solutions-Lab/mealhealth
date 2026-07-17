@@ -10,8 +10,8 @@ package's health-impact formulas.
 
 Upstream sources and their terms:
 
-1. IHME Global Burden of Disease (GBD) — relative-risk dose-response curves and
-   cause-specific mortality rates.
+1. IHME Global Burden of Disease (GBD) — relative-risk dose-response curves,
+   nutrient and mediator exposures, and the standard life table.
    Licence: IHME Free-of-Charge Non-commercial User Agreement
    (see LicenseRef-IHME-NonCommercial.txt). Non-commercial use only; the raw
    data may not be redistributed. Only adapted, aggregated derivatives are
@@ -29,6 +29,12 @@ Upstream sources and their terms:
    life tables (survivorship and remaining life expectancy).
    Licence: Creative Commons Attribution 3.0 IGO (CC BY 3.0 IGO).
 
+4. WHO Global Health Estimates 2021 — cause-specific mortality rates.
+   Terms: WHO Terms and Conditions of Use for Data Compilations, Aggregations,
+   Evaluations and Analyses (see LicenseRef-WHO-GHE-Terms.txt). The terms permit
+   extraction, redistribution and inclusion in other products for public-health
+   purposes, subject to attribution and the other stated conditions.
+
 Because the bundled data inherits the most restrictive of these upstream terms,
 the bundled data — and therefore this package AS A WHOLE when distributed with
 it — is provided for NON-COMMERCIAL research, teaching and private study only,
@@ -37,5 +43,6 @@ the GPL-3.0-or-later licence that applies to the package's source code: the GPL
 covers the code, not these data files, and does not grant any commercial-use or
 unrestricted-redistribution rights over them.
 
-No warranty is provided. When publishing results, cite GBD (IHME), GDD-IA
-(Springmann 2026), UN WPP, and GLADE, as described in docs/data_sources.md.
+No warranty is provided. When publishing results, cite GBD (IHME), WHO GHE,
+GDD-IA (Springmann 2026), UN WPP, and GLADE, as described in
+docs/data_sources.md.

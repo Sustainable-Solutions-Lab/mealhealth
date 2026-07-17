@@ -10,13 +10,12 @@ Implements the formulas in ``docs/methodology.md``:
   interpolation;
 * ``RR_d(x) = prod_r RR_{r,d}(x_r)`` over risk factors affecting cause ``d``;
 * ``PAF_d(x) = 1 - RR_d(x) / RR_d(x_base)`` relative to the baseline diet;
-* ``dYLL_d(x) = PAF_d(x) . Y_d`` with both local-life-table and GBD-standard
-  YLL anchors, defined per mode:
-    - population: ``Y_d`` = total observed cause-``d`` YLL for the country, with
-      an age (YLL)-weighted effective RR curve;
-    - individual (median / given age): an expected remaining-lifetime YLL built
-      from the country life table and age/cause-specific death rates, with the
-      PAF evaluated age-by-age using age-specific RR curves.
+* population ``dYLL`` summed over exact country/age/sex burden strata, for both
+  local-life-table and GBD-standard YLL anchors;
+* individual (median / given age) expected remaining-lifetime YLL averaged over
+  the starting-age sex composition and evaluated with sex-specific survival and
+  mortality. Local YLL uses sex-specific remaining life expectancy; standard
+  YLL uses the common GBD theoretical-minimum-risk life table.
 
 Positive ``dYLL`` = years gained (burden reduced); negative = years lost.
 """
@@ -36,10 +35,12 @@ from .foodgroups import (
     AGE_SPAN,
     AGE_START,
     CAUSES,
-    NUTRIENT_FACTORS,
+    DIRECT_NUTRIENT_FACTORS,
+    MEDIATOR_FACTORS,
     RISK_FACTORS,
     age_to_bucket,
 )
+from .sodium import MEDIATED_CURVE_BY_CAUSE, SodiumMeanShiftModel
 
 # --------------------------------------------------------------------------
 # Relative-risk curves
@@ -80,6 +81,7 @@ class RelativeRiskCurves:
 
 
 LifeTableKind = Literal["local", "standard"]
+SEXES = ("male", "female")
 
 
 class CountryBurden:
@@ -107,7 +109,7 @@ class CountryBurden:
                 bn["country"] == country, ["nutrient", "intake_g_per_day"]
             ].itertuples(index=False, name=None)
         )
-        missing_nutrients = set(NUTRIENT_FACTORS) - set(nutrient_baseline)
+        missing_nutrients = set(DIRECT_NUTRIENT_FACTORS) - set(nutrient_baseline)
         if missing_nutrients:
             raise ValueError(
                 f"Bundled nutrient baseline missing {country}: "
@@ -121,27 +123,25 @@ class CountryBurden:
 
         mort = data.mortality()
         mort = mort[mort["country"] == country]
-        self.death_rate: dict[tuple[str, str], float] = {
-            (r.cause, r.age): r.death_rate_per_1000 / 1000.0
+        self.death_rate: dict[tuple[str, str, str], float] = {
+            (r.sex, r.cause, r.age): r.death_rate_per_1000 / 1000.0
             for r in mort.itertuples(index=False)
         }
-
         pop = data.population()
         pop = pop[pop["country"] == country]
-        self.population: dict[str, float] = dict(
-            pop.loc[pop["age"] != "all-a", ["age", "population"]].itertuples(
-                index=False, name=None
-            )
-        )
+        self.population: dict[tuple[str, str], float] = {
+            (row.sex, row.age): row.population
+            for row in pop.loc[pop["age"] != "all-a"].itertuples(index=False)
+        }
 
         local_lt = data.local_life_table()
         local_lt = local_lt[local_lt["country"] == country]
-        self.local_lx: dict[str, float] = dict(
-            local_lt[["age", "lx"]].itertuples(index=False, name=None)
-        )
-        self.local_ex: dict[str, float] = dict(
-            local_lt[["age", "ex"]].itertuples(index=False, name=None)
-        )
+        self.local_lx: dict[tuple[str, str], float] = {
+            (row.sex, row.age): row.lx for row in local_lt.itertuples(index=False)
+        }
+        self.local_ex: dict[tuple[str, str], float] = {
+            (row.sex, row.age): row.ex for row in local_lt.itertuples(index=False)
+        }
         standard_lt = data.standard_life_table()
         self.standard_ex: dict[str, float] = dict(
             standard_lt[["age", "ex"]].itertuples(index=False, name=None)
@@ -154,23 +154,34 @@ class CountryBurden:
 
     # -- population-mode anchors ------------------------------------------
 
-    def _yll_by_cause_age(
-        self, cause: str, age: str, *, life_table: LifeTableKind
+    def yll_by_stratum(
+        self, cause: str, age: str, sex: str, *, life_table: LifeTableKind
     ) -> float:
         """Observed cause-d YLL in an age band = deaths . remaining life exp."""
-        m = self.death_rate.get((cause, age), 0.0)
-        pop = self.population.get(age, 0.0)
-        life_expectancy = self.local_ex if life_table == "local" else self.standard_ex
-        ex = life_expectancy.get(age, 0.0)
+        m = self.death_rate.get((sex, cause, age), 0.0)
+        pop = self.population.get((sex, age), 0.0)
+        ex = (
+            self.local_ex.get((sex, age), 0.0)
+            if life_table == "local"
+            else self.standard_ex.get(age, 0.0)
+        )
         return m * pop * ex
+
+    def yll_by_cause_age(
+        self, cause: str, age: str, *, life_table: LifeTableKind
+    ) -> float:
+        return sum(
+            self.yll_by_stratum(cause, age, sex, life_table=life_table) for sex in SEXES
+        )
 
     def _compute_total_yll(self, *, life_table: LifeTableKind) -> dict[str, float]:
         """Y_d: total observed YLL for each cause (all ages)."""
         out: dict[str, float] = {}
         for cause in CAUSES:
             out[cause] = sum(
-                self._yll_by_cause_age(cause, age, life_table=life_table)
-                for age in self.population
+                self.yll_by_stratum(cause, age, sex, life_table=life_table)
+                for sex in SEXES
+                for age in AGE_SPAN
             )
         return out
 
@@ -187,7 +198,7 @@ class CountryBurden:
         out: dict[tuple[str, str], float] = {}
         for cause in CAUSES:
             ylls = {
-                a: self._yll_by_cause_age(cause, a, life_table=life_table)
+                a: self.yll_by_cause_age(cause, a, life_table=life_table)
                 for a in ADULT_AGES
             }
             total = sum(ylls.values())
@@ -209,8 +220,18 @@ class CountryBurden:
 
     def median_adult_age(self) -> float:
         """Population-weighted median age among adults (25+)."""
-        ages = [a for a in ADULT_AGES if self.population.get(a, 0) > 0]
-        weights = np.array([self.population[a] for a in ages], dtype=float)
+        ages = [
+            age
+            for age in ADULT_AGES
+            if sum(self.population.get((sex, age), 0.0) for sex in SEXES) > 0
+        ]
+        weights = np.array(
+            [
+                sum(self.population.get((sex, age), 0.0) for sex in SEXES)
+                for age in ages
+            ],
+            dtype=float,
+        )
         mids = np.array([AGE_START[a] + AGE_SPAN.get(a, 5.0) / 2.0 for a in ages])
         order = np.argsort(mids)
         mids, weights = mids[order], weights[order]
@@ -218,15 +239,22 @@ class CountryBurden:
         half = cum[-1] / 2.0
         return float(mids[np.searchsorted(cum, half)])
 
-    def conditional_survival(self, age: str, a0_bucket: str) -> float:
-        """S(age | a0): probability of reaching ``age`` given alive at a0."""
-        l0 = self.local_lx.get(a0_bucket, 0.0)
-        return self.local_lx.get(age, 0.0) / l0 if l0 > 0 else 0.0
+    def sex_weights(self, age: str) -> dict[str, float]:
+        populations = {sex: self.population.get((sex, age), 0.0) for sex in SEXES}
+        total = sum(populations.values())
+        if total <= 0:
+            return {sex: 1.0 / len(SEXES) for sex in SEXES}
+        return {sex: value / total for sex, value in populations.items()}
 
-    def age_span_years(self, age: str) -> float:
+    def conditional_survival(self, sex: str, age: str, a0_bucket: str) -> float:
+        """S(age | a0): probability of reaching ``age`` given alive at a0."""
+        l0 = self.local_lx.get((sex, a0_bucket), 0.0)
+        return self.local_lx.get((sex, age), 0.0) / l0 if l0 > 0 else 0.0
+
+    def age_span_years(self, sex: str, age: str) -> float:
         """Width of an age band; the open 95+ interval uses its life exp."""
         if age == "95+":
-            return self.local_ex.get("95+", 3.0)
+            return self.local_ex.get((sex, "95+"), 3.0)
         return AGE_SPAN[age]
 
 
@@ -311,22 +339,22 @@ class CauseResult:
 
     @property
     def paf(self) -> float:
-        """Backward-compatible alias for :attr:`paf_local`."""
+        """Alias for :attr:`paf_local`."""
         return self.paf_local
 
     @property
     def delta_yll(self) -> float:
-        """Backward-compatible alias for :attr:`delta_yll_local`."""
+        """Alias for :attr:`delta_yll_local`."""
         return self.delta_yll_local
 
     @property
     def rr_baseline(self) -> float:
-        """Backward-compatible alias for :attr:`rr_baseline_local`."""
+        """Alias for :attr:`rr_baseline_local`."""
         return self.rr_baseline_local
 
     @property
     def rr_meal(self) -> float:
-        """Backward-compatible alias for :attr:`rr_meal_local`."""
+        """Alias for :attr:`rr_meal_local`."""
         return self.rr_meal_local
 
 
@@ -350,12 +378,12 @@ class MealAssessment:
 
     @property
     def delta_yll_total(self) -> float:
-        """Backward-compatible alias for :attr:`delta_yll_local_total`."""
+        """Alias for :attr:`delta_yll_local_total`."""
         return self.delta_yll_local_total
 
     @property
     def risk_attribution(self) -> dict[str, float]:
-        """Backward-compatible alias for :attr:`risk_attribution_local`."""
+        """Alias for :attr:`risk_attribution_local`."""
         return self.risk_attribution_local
 
     @property
@@ -370,7 +398,7 @@ class MealAssessment:
 
     @property
     def delta_paf_total(self) -> dict[str, float]:
-        """Backward-compatible alias for :attr:`delta_paf_local_total`."""
+        """Alias for :attr:`delta_paf_local_total`."""
         return self.delta_paf_local_total
 
     def summary(self) -> str:
@@ -427,6 +455,7 @@ def assess(
     include_processed_meat: bool = True,
     relative_only: bool = False,
     seafood_omega3_mg: float | None = None,
+    sodium_mg: float | None = None,
     curves: RelativeRiskCurves | None = None,
 ) -> MealAssessment:
     """Evaluate the health impact of eating ``meal`` daily in ``country``.
@@ -437,6 +466,14 @@ def assess(
         raise ValueError(f"Unknown mode {mode!r}")
     if mode == "age" and age is None:
         raise ValueError("mode='age' requires the age argument (years)")
+    requested_age = None
+    if mode == "age":
+        try:
+            requested_age = float(age)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("age must be a finite number at least 25") from exc
+        if not math.isfinite(requested_age) or requested_age < 25:
+            raise ValueError("age must be a finite number at least 25")
 
     food_risk_factors = tuple(
         r for r in RISK_FACTORS if include_processed_meat or r != "processed_meat"
@@ -459,24 +496,64 @@ def assess(
             ) from exc
         if not math.isfinite(amount) or amount < 0:
             raise ValueError("seafood_omega3_mg must be a finite non-negative number")
-        factor = NUTRIENT_FACTORS["omega3"]
+        factor = DIRECT_NUTRIENT_FACTORS["omega3"]
         nutrient_amounts["omega3"] = amount * factor.api_to_internal
 
-    risk_factors = food_risk_factors + tuple(nutrient_amounts)
+    sodium_g: float | None = None
+    if sodium_mg is not None:
+        try:
+            amount = float(sodium_mg)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("sodium_mg must be a finite non-negative number") from exc
+        if not math.isfinite(amount) or amount < 0:
+            raise ValueError("sodium_mg must be a finite non-negative number")
+        sodium_g = amount * MEDIATOR_FACTORS["sodium"].api_to_internal
+
+    direct_risk_factors = food_risk_factors + tuple(nutrient_amounts)
     meal_exposure = {**meal, **nutrient_amounts}
 
     if curves is None:
         curves = RelativeRiskCurves()
     burden = CountryBurden(country)
-    diet = build_substituted_diet(burden, meal_exposure, meal_kcal, risk_factors)
+    diet = build_substituted_diet(burden, meal_exposure, meal_kcal, direct_risk_factors)
+    sodium_model = None
+    if sodium_g is not None:
+        sodium_model = SodiumMeanShiftModel(country)
+        baseline_sodium, meal_sodium = sodium_model.weighted_exposure(
+            burden.population,
+            baseline_scale=diet.f,
+            meal_sodium_g=sodium_g,
+        )
+        diet.baseline_exposure["sodium"] = baseline_sodium
+        diet.exposure["sodium"] = meal_sodium
+        diet.warnings.append(
+            "Sodium uses a central stratum-mean approximation; it does not model "
+            "the within-stratum distribution of sodium or blood pressure."
+        )
+    risk_factors = direct_risk_factors + (("sodium",) if sodium_model else ())
 
     if mode == "population":
-        causes = _assess_population(curves, burden, diet, risk_factors, relative_only)
+        causes = _assess_population(
+            curves,
+            burden,
+            diet,
+            risk_factors,
+            relative_only,
+            sodium_model=sodium_model,
+            sodium_g=sodium_g,
+        )
         a0 = None
     else:
-        a0 = burden.median_adult_age() if mode == "median" else float(age)
+        a0 = burden.median_adult_age() if mode == "median" else requested_age
         causes = _assess_individual(
-            curves, burden, diet, risk_factors, a0, relative_only
+            curves,
+            burden,
+            diet,
+            risk_factors,
+            a0,
+            relative_only,
+            sodium_model=sodium_model,
+            sodium_g=sodium_g,
         )
 
     delta_local_total = sum(r.delta_yll_local for r in causes.values())
@@ -490,6 +567,8 @@ def assess(
         mode,
         a0,
         life_table="local",
+        sodium_model=sodium_model,
+        sodium_g=sodium_g,
     )
     attribution_standard = _attribute_by_risk(
         curves,
@@ -500,6 +579,8 @@ def assess(
         mode,
         a0,
         life_table="standard",
+        sodium_model=sodium_model,
+        sodium_g=sodium_g,
     )
     return MealAssessment(
         country=country,
@@ -520,80 +601,97 @@ def assess(
     )
 
 
-def _assess_population(curves, burden, diet, risk_factors, relative_only):
+def _assess_population(
+    curves,
+    burden,
+    diet,
+    risk_factors,
+    relative_only,
+    *,
+    sodium_model=None,
+    sodium_g=None,
+):
     causes: dict[str, CauseResult] = {}
     for cause in CAUSES:
-        relevant = [r for r in risk_factors if (r, cause) in curves.pairs]
-        if not relevant:
+        relevant = [risk for risk in risk_factors if (risk, cause) in curves.pairs]
+        sodium_relevant = sodium_model is not None and (
+            cause == "StomachCancer" or cause in MEDIATED_CURVE_BY_CAUSE
+        )
+        if not relevant and not sodium_relevant:
             continue
-
-        def effective_rr(
-            *,
-            life_table: LifeTableKind,
-            cause: str = cause,
-            relevant: tuple[str, ...] = tuple(relevant),
-        ) -> tuple[float, float]:
+        delta = {"local": 0.0, "standard": 0.0}
+        for age in ADULT_AGES:
             log_base = sum(
-                _population_log_rr(
-                    curves,
-                    burden,
-                    risk,
-                    cause,
-                    diet.baseline_exposure[risk],
-                    life_table=life_table,
-                )
+                curves.log_rr(risk, cause, age, diet.baseline_exposure[risk])
                 for risk in relevant
             )
             log_meal = sum(
-                _population_log_rr(
-                    curves,
-                    burden,
-                    risk,
-                    cause,
-                    diet.exposure[risk],
-                    life_table=life_table,
-                )
+                curves.log_rr(risk, cause, age, diet.exposure[risk])
                 for risk in relevant
             )
-            return math.exp(log_base), math.exp(log_meal)
-
-        rr_base_local, rr_meal_local = effective_rr(life_table="local")
-        paf_local = 1.0 - rr_meal_local / rr_base_local if rr_base_local > 0 else 0.0
-        rr_base_standard, rr_meal_standard = effective_rr(life_table="standard")
-        paf_standard = (
-            1.0 - rr_meal_standard / rr_base_standard if rr_base_standard > 0 else 0.0
-        )
-        yd_local = 0.0 if relative_only else burden.total_yll(cause, life_table="local")
-        yd_standard = (
-            0.0 if relative_only else burden.total_yll(cause, life_table="standard")
-        )
+            direct_risk_ratio = math.exp(log_meal - log_base)
+            for sex in SEXES:
+                sodium_risk_ratio = (
+                    sodium_model.stratum_effect(
+                        cause,
+                        age,
+                        sex,
+                        baseline_scale=diet.f,
+                        meal_sodium_g=sodium_g,
+                    ).risk_ratio
+                    if sodium_relevant
+                    else 1.0
+                )
+                risk_ratio = direct_risk_ratio * sodium_risk_ratio
+                for life_table in ("local", "standard"):
+                    delta[life_table] += burden.yll_by_stratum(
+                        cause, age, sex, life_table=life_table
+                    ) * (1.0 - risk_ratio)
+        total_local = burden.total_yll(cause, life_table="local")
+        total_standard = burden.total_yll(cause, life_table="standard")
+        paf_local = delta["local"] / total_local if total_local > 0 else 0.0
+        paf_standard = delta["standard"] / total_standard if total_standard > 0 else 0.0
         causes[cause] = CauseResult(
             cause=cause,
             paf_local=paf_local,
-            delta_yll_local=paf_local * yd_local,
-            rr_baseline_local=rr_base_local,
-            rr_meal_local=rr_meal_local,
-            delta_yll_standard=paf_standard * yd_standard,
+            delta_yll_local=0.0 if relative_only else delta["local"],
+            rr_baseline_local=1.0,
+            rr_meal_local=1.0 - paf_local,
+            delta_yll_standard=0.0 if relative_only else delta["standard"],
             paf_standard=paf_standard,
-            rr_baseline_standard=rr_base_standard,
-            rr_meal_standard=rr_meal_standard,
+            rr_baseline_standard=1.0,
+            rr_meal_standard=1.0 - paf_standard,
         )
     return causes
 
 
-def _assess_individual(curves, burden, diet, risk_factors, a0, relative_only):
+def _assess_individual(
+    curves,
+    burden,
+    diet,
+    risk_factors,
+    a0,
+    relative_only,
+    *,
+    sodium_model=None,
+    sodium_g=None,
+):
     a0_bucket = age_to_bucket(a0)
     future_ages = [a for a in ADULT_AGES if AGE_START[a] >= AGE_START[a0_bucket]]
+    sex_weights = burden.sex_weights(a0_bucket)
     causes: dict[str, CauseResult] = {}
     for cause in CAUSES:
         relevant = [r for r in risk_factors if (r, cause) in curves.pairs]
-        if not relevant:
+        sodium_relevant = sodium_model is not None and (
+            cause == "StomachCancer" or cause in MEDIATED_CURVE_BY_CAUSE
+        )
+        if not relevant and not sodium_relevant:
             continue
         delta_yll_local = 0.0
         delta_yll_standard = 0.0
         # PAF reported at the individual's current age band (for the relative
         # metric); the YLL sum uses the age-specific PAF at each future age.
-        rr_base_a0 = rr_meal_a0 = 1.0
+        risk_ratio_a0 = 0.0
         for age_band in future_ages:
             log_base = sum(
                 curves.log_rr(r, cause, age_band, diet.baseline_exposure[r])
@@ -602,29 +700,43 @@ def _assess_individual(curves, burden, diet, risk_factors, a0, relative_only):
             log_meal = sum(
                 curves.log_rr(r, cause, age_band, diet.exposure[r]) for r in relevant
             )
-            rr_base, rr_meal = math.exp(log_base), math.exp(log_meal)
-            paf_a = 1.0 - rr_meal / rr_base if rr_base > 0 else 0.0
-            if age_band == a0_bucket:
-                rr_base_a0, rr_meal_a0 = rr_base, rr_meal
-            if not relative_only:
-                surv = burden.conditional_survival(age_band, a0_bucket)
-                m = burden.death_rate.get((cause, age_band), 0.0)
-                span = burden.age_span_years(age_band)
-                local_ex = burden.local_ex.get(age_band, 0.0)
-                delta_yll_local += surv * (m * span) * local_ex * paf_a
-                standard_ex = burden.standard_ex.get(age_band, 0.0)
-                delta_yll_standard += surv * (m * span) * standard_ex * paf_a
-        paf0 = 1.0 - rr_meal_a0 / rr_base_a0 if rr_base_a0 > 0 else 0.0
+            direct_risk_ratio = math.exp(log_meal - log_base)
+            for sex in SEXES:
+                sodium_risk_ratio = (
+                    sodium_model.stratum_effect(
+                        cause,
+                        age_band,
+                        sex,
+                        baseline_scale=diet.f,
+                        meal_sodium_g=sodium_g,
+                    ).risk_ratio
+                    if sodium_relevant
+                    else 1.0
+                )
+                risk_ratio = direct_risk_ratio * sodium_risk_ratio
+                paf_a = 1.0 - risk_ratio
+                if age_band == a0_bucket:
+                    risk_ratio_a0 += sex_weights[sex] * risk_ratio
+                if not relative_only:
+                    surv = burden.conditional_survival(sex, age_band, a0_bucket)
+                    m = burden.death_rate.get((sex, cause, age_band), 0.0)
+                    span = burden.age_span_years(sex, age_band)
+                    weight = sex_weights[sex] * surv * (m * span) * paf_a
+                    delta_yll_local += weight * burden.local_ex.get(
+                        (sex, age_band), 0.0
+                    )
+                    delta_yll_standard += weight * burden.standard_ex.get(age_band, 0.0)
+        paf0 = 1.0 - risk_ratio_a0
         causes[cause] = CauseResult(
             cause=cause,
             paf_local=paf0,
             delta_yll_local=delta_yll_local,
-            rr_baseline_local=rr_base_a0,
-            rr_meal_local=rr_meal_a0,
+            rr_baseline_local=1.0,
+            rr_meal_local=risk_ratio_a0,
             delta_yll_standard=delta_yll_standard,
             paf_standard=paf0,
-            rr_baseline_standard=rr_base_a0,
-            rr_meal_standard=rr_meal_a0,
+            rr_baseline_standard=1.0,
+            rr_meal_standard=risk_ratio_a0,
         )
     return causes
 
@@ -639,6 +751,8 @@ def _attribute_by_risk(
     a0,
     *,
     life_table: LifeTableKind,
+    sodium_model,
+    sodium_g,
 ):
     """Additive decomposition of total dYLL across risk factors.
 
@@ -663,6 +777,20 @@ def _attribute_by_risk(
         # log-RR change per risk (summed/weighted exactly as the cause PAF is).
         contrib: dict[str, float] = {}
         for risk in risk_factors:
+            if risk == "sodium":
+                d = _sodium_attribution_log_ratio(
+                    sodium_model,
+                    burden,
+                    diet,
+                    cause,
+                    mode,
+                    age_bands,
+                    life_table=life_table,
+                    sodium_g=sodium_g,
+                )
+                if d != 0.0:
+                    contrib[risk] = d
+                continue
             if (risk, cause) not in curves.pairs:
                 continue
             if mode == "population":
@@ -694,3 +822,52 @@ def _attribute_by_risk(
         for risk, d in contrib.items():
             attribution[risk] += (d / total) * cause_delta
     return attribution
+
+
+def _sodium_attribution_log_ratio(
+    sodium_model,
+    burden,
+    diet,
+    cause,
+    mode,
+    age_bands,
+    *,
+    life_table,
+    sodium_g,
+):
+    """Effective sodium log-risk change used only for additive attribution."""
+
+    if sodium_model is None or not (
+        cause == "StomachCancer" or cause in MEDIATED_CURVE_BY_CAUSE
+    ):
+        return 0.0
+    if mode == "population":
+        weighted = 0.0
+        total = 0.0
+        for age in ADULT_AGES:
+            for sex in SEXES:
+                yll = burden.yll_by_stratum(cause, age, sex, life_table=life_table)
+                ratio = sodium_model.stratum_effect(
+                    cause,
+                    age,
+                    sex,
+                    baseline_scale=diet.f,
+                    meal_sodium_g=sodium_g,
+                ).risk_ratio
+                weighted += yll * math.log(ratio)
+                total += yll
+        return weighted / total if total > 0 else 0.0
+
+    result = 0.0
+    for age in age_bands:
+        sex_weights = burden.sex_weights(age)
+        for sex in SEXES:
+            ratio = sodium_model.stratum_effect(
+                cause,
+                age,
+                sex,
+                baseline_scale=diet.f,
+                meal_sodium_g=sodium_g,
+            ).risk_ratio
+            result += sex_weights[sex] * math.log(ratio)
+    return result

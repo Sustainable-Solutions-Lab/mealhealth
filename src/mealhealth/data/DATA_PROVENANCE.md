@@ -7,10 +7,11 @@ SPDX-License-Identifier: CC-BY-4.0
 # Bundled data — schemas and provenance
 
 These CSVs are processed/adapted derivatives. The health/demographic files are
-produced by `tools/prepare_data.py` from public raw datasets (IHME GBD, UN WPP);
-the baseline-diet files are a separate dataset, while the nutrient baseline is
-built directly from GBD dietary-risk exposure and WPP (see
-`docs/data_sources.md`).
+produced by `tools/prepare_data.py` from public raw datasets (WHO GHE, IHME GBD,
+UN WPP);
+the baseline-diet files are a separate dataset, while the nutrient and mediator
+baselines are built directly from GBD risk exposure (and WPP for the aggregated
+nutrient baseline; see `docs/data_sources.md`).
 See `docs/data_sources.md` for sources and licensing (non-commercial).
 Reference year: mortality/population 2020; life table 2024 (nearest available in
 the UN WPP abridged file); intake circa 2018–2020.
@@ -53,18 +54,61 @@ the 15 adult age groups and both sexes with WPP 2020 weights.
   `4e80f1047b13251d674da636d6cce35cb56b64878e79774c59f927d569d9b28f`)
   and UN WPP population data.
 
+## `baseline_mediators.csv`
+GBD 2023 urinary-sodium and systolic-blood-pressure exposure by country, adult
+age group, and sex in 2020.
+`country,age,sex,sodium_urinary_g_per_day_mean,sodium_urinary_g_per_day_lower,sodium_urinary_g_per_day_upper,sbp_mmhg_mean,sbp_mmhg_lower,sbp_mmhg_upper,source_country,source_year`
+- All 175 countries have 15 adult ages × two sexes. French Guiana uses the sole
+  proxy, `source_country=FRA`; every other row uses its own country.
+- The `lower` and `upper` values are marginal uncertainty bounds on the GBD
+  modeled stratum mean. They are not within-stratum quantiles and do not supply
+  a usual-SBP standard deviation. The runtime uses the means only; a
+  future distributional mediator would require additional input.
+- Built by `tools/build_baseline_mediators_from_gbd.py` from the pinned high-
+  sodium (`0ea88321…`) and high-SBP (`dd317224…`) files in GBD 2023 Risk
+  Exposure Estimates 1990–2023.
+
+## `sodium_relative_risks.csv`
+Current all-age GBD 2023 Burden-of-Proof curves for the sodium mediator.
+`path,curve_cause,exposure,rr_mean,rr_low,rr_high,risk_lower,risk_upper,star_rating,rei_id,cause_id`
+- `path=sodium`: urinary sodium → stomach cancer.
+- `path=sbp`: systolic blood pressure → CHD, combined stroke, and CKD.
+- Built from the public BoP API by `tools/build_sodium_relative_risks.py`.
+  The runtime uses `rr_mean`; bounds and metadata are retained for provenance.
+  SHA-256: `3261d4d230e1f7370c30c9e6d2922a0bc5c5851c8b57589e23df485caa2c0850`.
+
+## `sbp_age_attenuation.csv`
+`curve_cause,age,beta` — multiplicative log-RR age shape for the three SBP
+curves, normalized to 1 at age 60–64. Built once from the GBD 2019 RR workbook
+by `tools/generate_sbp_age_attenuation.py`; this is a transparent age-shape
+donor for the current all-age GBD 2023 curves. SHA-256:
+`cc5958d68253207f6bcb65f069e6d065c5a6a456c6d18b7081a14ff066dc20f2`.
+
 ## `mortality.csv`
-`age, cause, country, death_rate_per_1000` — GBD cause-specific death rate per
-1,000 person-years, year 2020, causes CHD/Stroke/T2DM/CRC.
+`country,sex,cause,age,source_country,death_rate_per_1000` — WHO Global Health Estimates 2021
+cause-specific death rates per 1,000 person-years, year 2020. The seven model
+causes are CHD, ischemic stroke, haemorrhagic stroke, diabetes mellitus,
+colorectal cancer, stomach cancer, and chronic kidney disease. The last is the
+sum of WHO cause IDs 1272 and 1273. WHO's single `85+` rate is repeated over
+the model's `85–89`, `90–94`, and `95+` bands. Five places without a WHO Member
+State row use the documented country proxies in `docs/data_sources.md`.
+The WHO source country used for each record is retained in `source_country`.
+Source attribution: World Health Organization, *Global Health Estimates 2021:
+Deaths by Cause, Age, Sex, by Country and by Region, 2000–2021*, Geneva: WHO,
+2024; accessed 15 July 2026. Extracted and processed by mealhealth under the
+[WHO dataset terms](https://www.who.int/about/policies/publishing/data-policy/terms-and-conditions);
+use does not imply endorsement by WHO or by represented countries.
+Bundled SHA-256:
+`151927d27d29734e565019678aaecc642aaa85dfe463ef91b663649fc54043af`.
 
 ## `population.csv`
-`age, country, population` — UN WPP population by age band, 2020 (includes the
-`all-a` total row).
+`age,sex,country,population` — UN WPP male/female population by age band, 2020
+(includes a per-sex `all-a` total row).
 
 ## `local_life_table.csv`
-`country, age, lx, ex` — UN WPP abridged life table (both sexes), survivors
-`lx` (radix 100000) and remaining life expectancy `ex` by age band; per country
-with World fallback where unavailable.
+`country,sex,age,lx,ex` — UN WPP male/female abridged life table, survivors `lx`
+(radix 100000) and remaining life expectancy `ex` by age band; per country with
+sex-specific World fallback where unavailable.
 
 ## `standard_life_table.csv`
 `age, ex` — adapted from the GBD 2023 theoretical minimum-risk life table

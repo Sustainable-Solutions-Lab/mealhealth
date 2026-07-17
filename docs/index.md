@@ -26,6 +26,7 @@ result = mh.assess_meal(
     meal_kcal=550,
     country="USA",
     seafood_omega3_mg=250,
+    sodium_mg=900,
 )
 print(result.summary())
 print("Total ΔYLL:", result.delta_yll_total)   # > 0 ⇒ years gained
@@ -37,10 +38,14 @@ print("By cause:", result.delta_paf_total)      # per-cause % risk change
 * **Food groups (GBD dietary risk factors):** fruits, vegetables, whole grains,
   legumes, nuts & seeds, unprocessed red meat, and **processed meat as a
   separate group**.
-* **Optional nutrient factor:** seafood omega-3 (EPA + DHA, excluding ALA),
-  supplied explicitly in mg per meal and linked to CHD.
-* **Diseases:** coronary heart disease (CHD), ischemic stroke, type-2 diabetes
-  (T2DM), and colorectal cancer (CRC), each acting on its GBD-mapped causes.
+* **Optional nutrient factors:** seafood omega-3 (EPA + DHA, excluding ALA)
+  and elemental sodium, both supplied explicitly in mg per meal. Sodium is a
+  deterministic country-age-sex mean-shift mediated through systolic blood
+  pressure; it does not model within-stratum exposure distributions.
+* **Diseases:** the food-group model covers coronary heart disease (CHD),
+  ischemic stroke, type-2 diabetes (T2DM), and colorectal cancer (CRC). Sodium
+  additionally covers stomach cancer, haemorrhagic stroke, and chronic kidney
+  disease.
 * **Age modes:** a population-level annual YLL figure, or individual
   lifetime quantities for the median adult or a person of a given age.
 
@@ -63,7 +68,8 @@ print("By cause:", result.delta_paf_total)      # per-cause % risk change
 The **source code** is GPL-3.0-or-later, but the **bundled data** carries a
 **non-commercial** restriction — it comes from IHME GBD. The other sources (UN
 World Population Prospects, the GDD-IA dietary data (CC BY 4.0), NHANES) are
-more permissive.
+more permissive. WHO mortality is governed separately by custom WHO dataset
+terms permitting redistribution for public-health purposes with attribution.
 The distributed package *as a whole* is therefore for **non-commercial research,
 teaching and private study, with attribution**. See
 [Data sources](data_sources.md#licensing) for the details.

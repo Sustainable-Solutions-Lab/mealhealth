@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "canonical_unit": "mm Hg per g/day urinary sodium",
+  "grams_sodium_per_100_mmol": 2.299,
+  "dietary_to_urinary": {
+    "central_fraction": 0.928,
+    "ci_lower": 0.907,
+    "ci_upper": 0.950,
+    "source": "Lucko et al. 2018",
+    "doi": "10.1111/jch.13353",
+    "note": "The runtime uses the pooled mean; uncertainty is not propagated."
+  },
+  "sodium_tmrel": {
+    "distribution": "uniform",
+    "lower_g_per_day_urinary": 1.0,
+    "upper_g_per_day_urinary": 5.0,
+    "source": "GBD 2021 dietary risk methods",
+    "note": "Runtime integrates this interval deterministically."
+  },
+  "source_files": {
+    "filippini_2021": {
+      "filename": "filippini_combined.pdf",
+      "sha256": "e302ecd204a6ce956ade81df5922678fd6fe2593e0122b74abe247f1de11231c",
+      "doi": "10.1161/CIRCULATIONAHA.120.050371"
+    },
+    "huang_2020": {
+      "filename": "huang.pdf",
+      "sha256": "b6c83774ac4968cd92f7f6f4de6628aac0797ab4c4a9e54e7aa2996bc70e3921",
+      "doi": "10.1136/bmj.m315"
+    },
+    "mozaffarian_2014_supplement": {
+      "filename": "mozaffarian2014_supplement.pdf",
+      "sha256": "885243de5f97c27ecc43f5ea4099f5beaacb5b05ecba310571e4523422ea9175",
+      "doi": "10.1056/NEJMoa1304127"
+    }
+  },
+  "linear_models": [
+    {
+      "id": "filippini_primary",
+      "role": "primary",
+      "source": "filippini_2021",
+      "source_location": "Results, Circulation pages 1549-1550",
+      "native_unit": "mm Hg per g/day urinary sodium",
+      "native_estimate": 2.42,
+      "native_ci_lower": 1.97,
+      "native_ci_upper": 2.87,
+      "canonical_estimate": 2.42,
+      "canonical_ci_lower": 1.97,
+      "canonical_ci_upper": 2.87,
+      "note": "Reported directly per g/day; positive magnitude for higher sodium."
+    },
+    {
+      "id": "filippini_no_hypertension",
+      "role": "transport_sensitivity",
+      "source": "filippini_2021",
+      "source_location": "Results, Circulation page 1551",
+      "native_unit": "mm Hg per 100 mmol/day urinary sodium",
+      "native_estimate": 2.30,
+      "native_ci_lower": 1.33,
+      "native_ci_upper": 3.27,
+      "canonical_estimate": 1.000434971727,
+      "canonical_ci_lower": 0.578512396694,
+      "canonical_ci_upper": 1.422357546759,
+      "note": "Scenario bound, not an individual treatment rule."
+    },
+    {
+      "id": "filippini_hypertension",
+      "role": "transport_sensitivity",
+      "source": "filippini_2021",
+      "source_location": "Results, Circulation page 1551",
+      "native_unit": "mm Hg per 100 mmol/day urinary sodium",
+      "native_estimate": 6.50,
+      "native_ci_lower": 5.22,
+      "native_ci_upper": 7.79,
+      "canonical_estimate": 2.827316224445,
+      "canonical_ci_lower": 2.270552414093,
+      "canonical_ci_upper": 3.388429752066,
+      "note": "Scenario bound, not an individual treatment rule."
+    },
+    {
+      "id": "huang_all_trials",
+      "role": "transport_sensitivity",
+      "source": "huang_2020",
+      "source_location": "Table 1, multivariable all-studies coefficient",
+      "native_unit": "mm Hg per 100 mmol/day urinary sodium",
+      "native_estimate": 2.20,
+      "native_ci_lower": 1.30,
+      "native_ci_upper": 3.10,
+      "canonical_estimate": 0.956937799043,
+      "canonical_ci_lower": 0.565463244889,
+      "canonical_ci_upper": 1.348412353197,
+      "note": "Table reports 0.022 (0.013 to 0.031) mm Hg per mmol/day."
+    },
+    {
+      "id": "huang_over_14_days",
+      "role": "transport_sensitivity",
+      "source": "huang_2020",
+      "source_location": "Table 1, multivariable >14-day coefficient",
+      "native_unit": "mm Hg per 100 mmol/day urinary sodium",
+      "native_estimate": 4.30,
+      "native_ci_lower": 1.70,
+      "native_ci_upper": 6.80,
+      "canonical_estimate": 1.870378425402,
+      "canonical_ci_lower": 0.739451935624,
+      "canonical_ci_upper": 2.957807742497,
+      "note": "Table reports 0.043 (0.017 to 0.068) mm Hg per mmol/day; 4.26 mm Hg elsewhere is a pooled change, not this slope."
+    }
+  ],
+  "mozaffarian_transport_model": {
+    "source": "mozaffarian_2014_supplement",
+    "source_location": "Supplementary appendix pages 6-7",
+    "native_unit": "mm Hg per 100 mmol/day urinary sodium",
+    "canonical_unit": "mm Hg per g/day urinary sodium",
+    "coefficients": {
+      "intercept_at_age_50": {
+        "native_estimate": 3.735,
+        "native_se": 0.730,
+        "canonical_estimate": 1.624619399739,
+        "canonical_se": 0.317529360592
+      },
+      "per_year_from_age_50": {
+        "native_estimate": 0.105,
+        "native_se": 0.029,
+        "canonical_estimate": 0.045672031318,
+        "canonical_se": 0.012614180078
+      },
+      "hypertension_increment": {
+        "native_estimate": 1.874,
+        "native_se": 0.884,
+        "canonical_estimate": 0.815137016094,
+        "canonical_se": 0.384515006525
+      },
+      "black_population_increment": {
+        "native_estimate": 2.489,
+        "native_se": 1.188,
+        "canonical_estimate": 1.082644628099,
+        "canonical_se": 0.516746411483
+      }
+    },
+    "note": "Report modifiers separately; never infer race or hypertension from country."
+  }
+}

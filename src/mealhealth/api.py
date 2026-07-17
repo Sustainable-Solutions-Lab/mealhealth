@@ -34,6 +34,7 @@ def assess_meal(
     include_processed_meat: bool = True,
     relative_only: bool = False,
     seafood_omega3_mg: float | None = None,
+    sodium_mg: float | None = None,
 ) -> MealAssessment:
     """Assess the health impact of eating ``meal`` every day in ``country``.
 
@@ -53,24 +54,32 @@ def assess_meal(
     country:
         ISO3 code. See :func:`list_countries`.
     mode:
-        ``"population"`` (a): age(YLL)-weighted effective impact if the whole
-        population substituted in the meal — a population-level *annual* YLL
-        quantity. ``"median"`` (b) and ``"age"`` (c): individual *lifetime*
-        quantities for the median adult / a person of the given ``age``, built
-        from the life table.
+        ``"population"`` (a): exact country-age-sex burden aggregation if the
+        whole population substituted in the meal — a population-level *annual*
+        YLL quantity. ``"median"`` (b) and ``"age"`` (c): individual
+        *lifetime* quantities for the median adult / a person of the given
+        ``age``, built from the life table.
     age:
-        Required when ``mode="age"``; the person's current age in years.
+        Required when ``mode="age"``; the person's current age in years,
+        at least 25 (the lower bound of the bundled adult risk curves).
     include_processed_meat:
         Model processed meat as a separate harmful group (default True).
     relative_only:
-        If True, skip the absolute-YLL anchor and report only the relative
-        metric (per-cause PAF: the % change in diet-attributable risk). This is
-        the degraded fallback that needs only RR curves + baseline exposure.
+        If True, suppress absolute YLL and report only the relative metric
+        (per-cause PAF). It uses the same sex-specific burden weights as the
+        full result and therefore still requires bundled burden data.
     seafood_omega3_mg:
         Optional seafood-derived EPA + DHA in the meal, in milligrams. This is
         not total omega-3 and excludes plant ALA. ``None`` (the default) omits
         the factor from the assessment; ``0.0`` explicitly models a meal with
         no seafood omega-3 and therefore still displaces the country baseline.
+    sodium_mg:
+        Optional elemental sodium in the complete meal, in milligrams. Include
+        sodium from ingredients, sauces, cooking salt, and table salt. ``None``
+        omits sodium entirely; ``0.0`` explicitly models a sodium-free meal
+        that displaces the country baseline. The sodium calculation uses a
+        central country-age-sex mean-shift approximation through systolic blood
+        pressure and does not model within-stratum exposure distributions.
 
     Returns
     -------
@@ -78,9 +87,9 @@ def assess_meal(
         Has ``delta_yll_local_total`` and ``delta_yll_standard_total`` (years
         gained if positive, lost if negative), a per-cause ``causes``
         breakdown, matching local and standard risk attribution, the
-        substitution factor ``f``, and a ``summary()`` method. The legacy
-        ``delta_yll_total`` and ``risk_attribution`` names remain aliases for
-        their local variants.
+        substitution factor ``f``, and a ``summary()`` method.
+        ``delta_yll_total`` and ``risk_attribution`` alias their local
+        variants.
     """
     return assess(
         meal,
@@ -91,6 +100,7 @@ def assess_meal(
         include_processed_meat=include_processed_meat,
         relative_only=relative_only,
         seafood_omega3_mg=seafood_omega3_mg,
+        sodium_mg=sodium_mg,
     )
 
 

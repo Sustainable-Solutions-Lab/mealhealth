@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 from pathlib import Path
+import shutil
+import urllib.request
 
 import numpy as np
 import pandas as pd
@@ -29,7 +31,11 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = ROOT / "data" / "raw"
 OUT_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_nutrients.csv"
 BASELINE_INTAKE_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_intake.csv"
-MORTALITY_PATH = RAW_DIR / "IHME-GBD_2023-death-rates-2020.csv"
+LOCATION_HIERARCHY_PATH = RAW_DIR / "IHME_GBD_2021_A1_HIERARCHIES_Y2024M05D15.XLSX"
+LOCATION_HIERARCHY_URL = (
+    "https://www.healthdata.org/sites/default/files/2024-05/"
+    "IHME_GBD_2021_A1_HIERARCHIES_Y2024M05D15.XLSX"
+)
 WPP_POPULATION_PATH = RAW_DIR / "WPP_population.csv.gz"
 REFERENCE_YEAR = 2020
 
@@ -132,6 +138,7 @@ COUNTRY_NAME_OVERRIDES = {
     "Saint Barthélemy": "BLM",
     "Saint Martin (French part)": "MAF",
     "Sint Maarten (Dutch part)": "SXM",
+    "Taiwan (Province of China)": "TWN",
     "The former Yugoslav Republic of Macedonia": "MKD",
     "Türkiye": "TUR",
     "United Kingdom of Great Britain and Northern Ireland": "GBR",
@@ -223,16 +230,43 @@ def _read_and_validate_exposure(
     return df
 
 
-def _national_locations(mortality_path: Path) -> pd.DataFrame:
-    mortality = pd.read_csv(
-        mortality_path, usecols=["location_id", "location_name"]
-    ).drop_duplicates()
-    if mortality["location_id"].duplicated().any():
-        raise ValueError("Mortality input maps a national location_id to >1 name")
-    mortality["source_country"] = mortality["location_name"].map(_map_country_to_iso3)
-    return mortality.dropna(subset=["source_country"])[
-        ["location_id", "source_country"]
-    ]
+def _ensure_location_hierarchy(path: Path) -> None:
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    request = urllib.request.Request(  # noqa: S310 (trusted IHME host)
+        LOCATION_HIERARCHY_URL, headers={"User-Agent": "Mozilla/5.0"}
+    )
+    with (
+        urllib.request.urlopen(request, timeout=120) as response,
+        path.open(  # noqa: S310
+            "wb"
+        ) as output,
+    ):
+        shutil.copyfileobj(response, output)
+
+
+def _national_locations(hierarchy_path: Path) -> pd.DataFrame:
+    hierarchy = pd.read_excel(hierarchy_path, sheet_name="GBD 2021 Locations Hierarchy")
+    required = {"Location ID", "Location Name", "Level"}
+    missing_columns = required - set(hierarchy.columns)
+    if missing_columns:
+        raise ValueError(
+            f"GBD location hierarchy missing columns: {sorted(missing_columns)}"
+        )
+    national = hierarchy.loc[
+        hierarchy["Level"] == 3, ["Location ID", "Location Name"]
+    ].drop_duplicates()
+    national = national.rename(
+        columns={"Location ID": "location_id", "Location Name": "location_name"}
+    )
+    if national["location_id"].duplicated().any():
+        raise ValueError("GBD hierarchy maps a national location_id to >1 name")
+    national["source_country"] = national["location_name"].map(_map_country_to_iso3)
+    national = national.dropna(subset=["source_country"])
+    if national["source_country"].duplicated().any():
+        raise ValueError("GBD hierarchy maps multiple national locations to one ISO3")
+    return national[["location_id", "source_country"]]
 
 
 def _wpp_age_sex_weights(wpp_path: Path, countries: set[str]) -> pd.DataFrame:
@@ -298,7 +332,7 @@ def build_baseline_nutrients(
     *,
     source: NutrientSource = OMEGA3_SOURCE,
     baseline_intake_path: Path = BASELINE_INTAKE_PATH,
-    mortality_path: Path = MORTALITY_PATH,
+    location_hierarchy_path: Path = LOCATION_HIERARCHY_PATH,
     wpp_path: Path = WPP_POPULATION_PATH,
     verify_checksum: bool = True,
 ) -> pd.DataFrame:
@@ -309,13 +343,14 @@ def build_baseline_nutrients(
     target_countries = sorted(
         pd.read_csv(baseline_intake_path, usecols=["country"])["country"].unique()
     )
+    _ensure_location_hierarchy(location_hierarchy_path)
     exposure = _read_and_validate_exposure(source, verify_checksum=verify_checksum)
     exposure = exposure[
         (exposure["year_id"] == REFERENCE_YEAR)
         & (exposure["age_group_id"].isin(ADULT_AGE_START))
     ].copy()
     exposure = exposure.merge(
-        _national_locations(mortality_path), on="location_id", how="inner"
+        _national_locations(location_hierarchy_path), on="location_id", how="inner"
     )
 
     direct_needed = set(target_countries) - set(NUTRIENT_COUNTRY_PROXIES)

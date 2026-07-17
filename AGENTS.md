@@ -34,10 +34,11 @@ docs/                   # Sphinx site: conf.py + Markdown pages (MyST), built wi
 
 * **Per-country.** The model works at the country level directly — there is no
   optimisation or country clustering here.
-* **GBD 2023 vintage throughout.** Relative-risk curves come from the GBD 2023
+* **Current burden inputs.** Relative-risk curves come from the GBD 2023
   Burden-of-Proof tool (age-aggregated; fetched without login), age-expanded via
   a curated attenuation table (GBD 2019 age shape, normalized to the 60-64
-  reference age) and clipped at curated TMRELs. Mortality is GBD 2023.
+  reference age) and clipped at curated TMRELs. Mortality is WHO GHE 2021,
+  using its 2020 country-age-sex rates.
 * **Direct curve evaluation.** RR is read off the curve by log-linear
   interpolation.
 * **Relative to baseline.** PAF is `1 − RR(x)/RR(x_base)`; the PAF carries no

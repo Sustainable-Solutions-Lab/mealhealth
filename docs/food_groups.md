@@ -12,7 +12,8 @@ health calculation directly. Everything else in the meal (poultry, eggs, oils,
 refined/white grains, potatoes, sugar, dairy, …) affects the result only through
 the meal's calorie total, by displacing the baseline diet. Fish and shellfish
 also contribute when their EPA+DHA content is supplied through the optional
-nutrient input below.
+nutrient input below. Sodium is likewise supplied as a nutrient amount, not as
+food-group mass.
 
 ## The seven risk-factor groups
 
@@ -43,6 +44,18 @@ nonzero baseline exposure and can therefore produce a CHD penalty. Oily-fish
 servings commonly contain hundreds to more than 1,000 mg EPA+DHA, while lean
 seafood can contain much less; use a nutrition database or product analysis for
 the actual meal rather than estimating from seafood mass alone.
+
+Sodium is supplied separately as `sodium_mg=` in **mg of elemental sodium per
+meal**. Include sodium naturally present in ingredients plus sauces, cooking
+salt, and salt added at the table. This is not the mass of sodium chloride:
+when only salt mass is known, use the approximate conversion
+`sodium_mg = salt_g * 1000 / 2.542`.
+
+As with omega-3, omitted/`None` means “do not assess sodium,” whereas `0.0`
+means a measured sodium-free meal and still displaces the country baseline.
+The model converts dietary sodium to the GBD 24-hour urinary-sodium basis and
+evaluates a country × age × sex mean SBP shift. It does not use personal blood
+pressure, hypertension treatment, kidney function, or salt sensitivity.
 
 ## Mass basis — read this for correct numbers
 

@@ -26,6 +26,7 @@ result = mh.assess_meal(
     meal_kcal=550,
     country="USA",
     seafood_omega3_mg=250,
+    sodium_mg=900,
 )
 print(result.summary())
 print("Local ΔYLL:", result.delta_yll_local_total)  # > 0 ⇒ years gained
@@ -38,20 +39,24 @@ print("By cause:", result.delta_paf_total)            # per-cause % risk change
 * **Food groups (GBD dietary risk factors):** fruits, vegetables, whole grains,
   legumes, nuts & seeds, unprocessed red meat, and **processed meat as a
   separate group**.
-* **Optional nutrient factor:** seafood omega-3 (EPA + DHA, excluding ALA),
-  supplied explicitly in mg per meal and linked to CHD.
-* **Diseases:** coronary heart disease (CHD), ischemic stroke, type-2 diabetes
-  (T2DM), colorectal cancer (CRC), each acting on its GBD-mapped causes
-  (processed meat: CHD, T2DM, CRC).
+* **Optional nutrient factors:** seafood omega-3 (EPA + DHA, excluding ALA)
+  and elemental sodium, both supplied explicitly in mg per meal. Sodium is a
+  deterministic country-age-sex mean-shift mediated through systolic blood
+  pressure; it does not model within-stratum exposure distributions.
+* **Diseases:** the food-group model covers coronary heart disease (CHD),
+  ischemic stroke, type-2 diabetes (T2DM), and colorectal cancer (CRC). Sodium
+  additionally covers stomach cancer, haemorrhagic stroke, and chronic kidney
+  disease.
 * **Age modes:**
-  * `population` (a) — age-(YLL-)weighted effective impact if the whole
-    population ate the meal; a population-level **annual** YLL figure.
+  * `population` (a) — exact country × age × sex burden aggregation if the
+    whole population ate the meal; a population-level **annual** YLL figure.
   * `median` (b) and `age` (c) — **individual lifetime** quantities for the
     median adult or a person of a given age, built from a life table and
     age/cause-specific death rates.
-* **Relative-only fallback:** if you only want the relative metric (% change in
-  diet-attributable risk, i.e. the PAF), pass `relative_only=True`; this needs
-  only the RR curves and baseline exposure, not the mortality/life-table data.
+* **Relative-only output:** if you only want the relative metric (% change in
+  diet-attributable risk, i.e. the PAF), pass `relative_only=True`. It retains
+  the same burden weights and therefore still uses the bundled mortality,
+  population, and life-table data.
 
 ## Installation
 
@@ -97,8 +102,10 @@ Build the site locally with `uv run --group docs sphinx-build -b html docs docs/
 
 The **source code** is licensed **GPL-3.0-or-later**. However, the **bundled
 data** carries a **non-commercial** restriction, which comes from IHME GBD; the
-other sources (UN World Population Prospects, the GDD-IA dietary data) are more
-permissive — GDD-IA is CC BY 4.0. The distributed package *as a whole* is therefore for
+WHO mortality is governed separately by custom WHO dataset terms permitting
+redistribution for public-health purposes with attribution. Other sources (UN
+World Population Prospects and the GDD-IA dietary data) are more permissive —
+GDD-IA is CC BY 4.0. The distributed package *as a whole* is therefore for
 **non-commercial research, teaching and private study, with attribution** — the
 GPL on the code does *not* grant unrestricted reuse of the bundled data. See
 [`docs/data_sources.md`](docs/data_sources.md).
