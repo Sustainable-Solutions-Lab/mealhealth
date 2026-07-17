@@ -32,7 +32,7 @@ import pycountry
 ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = ROOT / "data" / "raw"
 OUT_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_mediators.csv"
-BASELINE_INTAKE_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_intake.csv"
+BASELINE_MANIFEST_PATH = ROOT / "tools" / "reference" / "baseline_country_sources.csv"
 LOCATION_HIERARCHY_PATH = RAW_DIR / "IHME_GBD_2021_A1_HIERARCHIES_Y2024M05D15.XLSX"
 LOCATION_HIERARCHY_URL = (
     "https://www.healthdata.org/sites/default/files/2024-05/"
@@ -228,6 +228,8 @@ def _read_and_validate_exposure(
 def _ensure_location_hierarchy(path: Path) -> None:
     if path.exists():
         return
+    if (RAW_DIR / "IHME-GBD_2023-death-rates-2020.csv").exists():
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(  # noqa: S310 (trusted IHME host)
         LOCATION_HIERARCHY_URL, headers={"User-Agent": "Mozilla/5.0"}
@@ -242,6 +244,18 @@ def _ensure_location_hierarchy(path: Path) -> None:
 
 
 def _national_locations(hierarchy_path: Path) -> pd.DataFrame:
+    mortality = RAW_DIR / "IHME-GBD_2023-death-rates-2020.csv"
+    if not hierarchy_path.exists() and mortality.exists():
+        national = pd.read_csv(
+            mortality, usecols=["location_id", "location_name"]
+        ).drop_duplicates()
+        national["source_country"] = national["location_name"].map(_map_country_to_iso3)
+        national = national.dropna(subset=["source_country"])
+        if (
+            not national["location_id"].duplicated().any()
+            and not national["source_country"].duplicated().any()
+        ):
+            return national[["location_id", "source_country"]]
     hierarchy = pd.read_excel(hierarchy_path, sheet_name="GBD 2021 Locations Hierarchy")
     required = {"Location ID", "Location Name", "Level"}
     missing_columns = required - set(hierarchy.columns)
@@ -298,7 +312,7 @@ def _select_source_cells(
 def build_baseline_mediators(
     *,
     raw_dir: Path = RAW_DIR,
-    baseline_intake_path: Path = BASELINE_INTAKE_PATH,
+    manifest_path: Path = BASELINE_MANIFEST_PATH,
     location_hierarchy_path: Path | None = None,
     sodium_source: ExposureSource = SODIUM_SOURCE,
     sbp_source: ExposureSource = SBP_SOURCE,
@@ -311,7 +325,7 @@ def build_baseline_mediators(
     )
     _ensure_location_hierarchy(location_hierarchy_path)
     target_countries = sorted(
-        pd.read_csv(baseline_intake_path, usecols=["country"])["country"].unique()
+        pd.read_csv(manifest_path, usecols=["country"])["country"].unique()
     )
     source_countries = {
         MEDIATOR_COUNTRY_PROXIES.get(country, country) for country in target_countries

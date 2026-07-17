@@ -283,9 +283,10 @@ def test_usa_baseline_burden_reasonable():
     )
     # baseline calories ~2400 kcal
     assert 1800 < b.baseline_kcal < 3200
-    # red + processed meat split sums to the combined red-meat intake ~66.6 g/day
+    # GBD 2023 direct baselines are on the model basis; the USA split is about
+    # 111 g/day in this release.
     assert b.baseline["red_meat"] + b.baseline["processed_meat"] == pytest.approx(
-        66.6, abs=1.0
+        111.3, abs=1.0
     )
     assert b.baseline["omega3"] == pytest.approx(0.3110668163)
 
@@ -293,8 +294,8 @@ def test_usa_baseline_burden_reasonable():
 def test_missing_country_nutrient_baseline_raises(monkeypatch):
     from mealhealth import data
 
-    incomplete = data.baseline_nutrients().query("country != 'USA'")
-    monkeypatch.setattr(data, "baseline_nutrients", lambda: incomplete)
+    incomplete = data.baseline_exposure().query("country != 'USA'")
+    monkeypatch.setattr(data, "baseline_exposure", lambda: incomplete)
     with pytest.raises(ValueError, match="missing USA"):
         CountryBurden("USA")
 

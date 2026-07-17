@@ -17,7 +17,13 @@ from importlib import resources
 import numpy as np
 import pandas as pd
 
-from .foodgroups import ADULT_AGES, AGE_BUCKETS, CAUSES, DIRECT_NUTRIENT_FACTORS
+from .foodgroups import (
+    ADULT_AGES,
+    AGE_BUCKETS,
+    CAUSES,
+    DIRECT_NUTRIENT_FACTORS,
+    RISK_FACTORS,
+)
 
 
 def _read(name: str) -> pd.DataFrame:
@@ -36,60 +42,59 @@ def relative_risks() -> pd.DataFrame:
 
 
 @lru_cache(maxsize=1)
-def baseline_intake() -> pd.DataFrame:
-    """country, risk_factor, intake_g_per_day (model/fresh basis)."""
-    return _read("baseline_intake.csv")
+def baseline_exposure() -> pd.DataFrame:
+    """Complete direct-factor baseline, including omega-3 and provenance."""
+    df = _read("baseline_exposure.csv")
+    expected_columns = {
+        "country",
+        "risk_factor",
+        "exposure_g_per_day",
+        "source_country",
+        "source_year",
+    }
+    if set(df.columns) != expected_columns:
+        raise ValueError("Invalid bundled baseline_exposure.csv schema")
+    countries = set(df["country"])
+    expected = {
+        (country, risk)
+        for country in countries
+        for risk in (*RISK_FACTORS, *DIRECT_NUTRIENT_FACTORS)
+    }
+    rows = list(df[["country", "risk_factor"]].itertuples(index=False, name=None))
+    if len(rows) != len(set(rows)) or set(rows) != expected:
+        raise ValueError("Invalid direct baseline country/risk-factor coverage")
+    values = pd.to_numeric(df["exposure_g_per_day"], errors="coerce")
+    if not np.isfinite(values).all() or (values < 0).any():
+        raise ValueError("Bundled direct exposures must be finite and non-negative")
+    if set(df["source_year"]) != {2020}:
+        raise ValueError("Bundled direct exposures must use source_year 2020")
+    expected_sources = df["country"].where(df["country"] != "GUF", "FRA")
+    if not df["source_country"].equals(expected_sources):
+        raise ValueError(
+            "Bundled direct exposure source_country must be direct except GUF->FRA"
+        )
+    return df
 
 
 @lru_cache(maxsize=1)
 def baseline_calories() -> pd.DataFrame:
     """country, kcal_per_day (total baseline daily energy)."""
-    return _read("baseline_calories.csv")
-
-
-@lru_cache(maxsize=1)
-def baseline_nutrients() -> pd.DataFrame:
-    """country, nutrient, intake_g_per_day, source_country, source_year.
-
-    Every supported country must have exactly one finite, non-negative row for
-    every implemented nutrient. This strict load-time check prevents a missing
-    baseline from silently becoming a real zero exposure.
-    """
-    df = _read("baseline_nutrients.csv")
-    expected_columns = {
+    df = _read("baseline_calories.csv")
+    if set(df.columns) == {
         "country",
-        "nutrient",
-        "intake_g_per_day",
+        "calories_kcal_per_day",
         "source_country",
         "source_year",
-    }
-    if set(df.columns) != expected_columns:
-        raise ValueError(
-            "Invalid bundled baseline_nutrients.csv schema: expected "
-            f"{sorted(expected_columns)}, got {sorted(df.columns)}"
-        )
-    countries = set(baseline_intake()["country"])
-    expected = {(c, n) for c in countries for n in DIRECT_NUTRIENT_FACTORS}
-    pairs = list(df[["country", "nutrient"]].itertuples(index=False, name=None))
-    actual = set(pairs)
-    if len(pairs) != len(actual) or actual != expected:
-        missing = sorted(expected - actual)
-        extra = sorted(actual - expected)
-        raise ValueError(
-            "Invalid bundled nutrient baseline coverage: "
-            f"missing={missing[:10]}, extra={extra[:10]}, duplicates="
-            f"{len(pairs) - len(actual)}"
-        )
-    values = pd.to_numeric(df["intake_g_per_day"], errors="coerce")
-    if not np.isfinite(values.to_numpy(dtype=float)).all() or not (values >= 0).all():
-        raise ValueError("Bundled nutrient baselines must be finite and non-negative")
+    }:
+        df = df.rename(columns={"calories_kcal_per_day": "kcal_per_day"})
+    expected = {"country", "kcal_per_day", "source_country", "source_year"}
+    if set(df.columns) != expected or len(df) != len(set(df["country"])):
+        raise ValueError("Invalid bundled baseline_calories.csv schema")
     if set(df["source_year"]) != {2020}:
-        raise ValueError("Bundled nutrient baselines must use source_year 2020")
-    expected_sources = df["country"].where(df["country"] != "GUF", "FRA")
-    if not df["source_country"].equals(expected_sources):
-        raise ValueError(
-            "Bundled nutrient baseline source_country must be direct except GUF->FRA"
-        )
+        raise ValueError("Bundled calorie baselines must use source_year 2020")
+    values = pd.to_numeric(df["kcal_per_day"], errors="coerce")
+    if not np.isfinite(values).all() or (values < 0).any():
+        raise ValueError("Bundled calories must be finite and non-negative")
     return df
 
 
@@ -124,7 +129,7 @@ def baseline_mediators() -> pd.DataFrame:
             f"{sorted(expected_columns)}, got {sorted(df.columns)}"
         )
 
-    countries = set(baseline_intake()["country"])
+    countries = set(baseline_exposure()["country"])
     ages = {
         "25-29",
         "30-34",
@@ -271,7 +276,7 @@ def mortality() -> pd.DataFrame:
         "death_rate_per_1000",
     }:
         raise ValueError("Invalid bundled mortality.csv schema")
-    countries = set(baseline_intake()["country"])
+    countries = set(baseline_exposure()["country"])
     expected = {
         (country, sex, cause, age)
         for country in countries
@@ -313,7 +318,7 @@ def population() -> pd.DataFrame:
     df = _read("population.csv")
     if set(df.columns) != {"age", "sex", "country", "population"}:
         raise ValueError("Invalid bundled population.csv schema")
-    countries = set(baseline_intake()["country"])
+    countries = set(baseline_exposure()["country"])
     expected = {
         (country, sex, age)
         for country in countries
@@ -335,7 +340,7 @@ def local_life_table() -> pd.DataFrame:
     df = _read("local_life_table.csv")
     if set(df.columns) != {"country", "sex", "age", "lx", "ex"}:
         raise ValueError("Invalid bundled local_life_table.csv schema")
-    countries = set(baseline_intake()["country"])
+    countries = set(baseline_exposure()["country"])
     expected = {
         (country, sex, age)
         for country in countries
@@ -360,4 +365,4 @@ def standard_life_table() -> pd.DataFrame:
 @lru_cache(maxsize=1)
 def available_countries() -> list[str]:
     """ISO3 codes with complete bundled data, sorted."""
-    return sorted(baseline_intake()["country"].unique())
+    return sorted(baseline_exposure()["country"].unique())

@@ -30,9 +30,9 @@ Burden-of-Proof RR curves are fetched automatically. The relative-risk age
 structure and TMRELs come from curated tables under
 ``tools/reference/`` (see ``tools/generate_rr_age_attenuation.py``).
 
-The *baseline diet* (``baseline_intake.csv``, ``baseline_calories.csv``) is a
-separate dataset and is **not** built here — see
-``tools/baseline_diet_from_glade.py`` and ``docs/data_sources.md``.
+The direct exposure and calorie baselines are separate datasets and are **not**
+built here — see ``tools/build_baseline_exposure.py``,
+``tools/build_baseline_calories.py`` and ``docs/data_sources.md``.
 
 Run from the repository root with the dev environment::
 
@@ -153,20 +153,17 @@ RISK_CAUSE_MAP: dict[str, list[str]] = {
 # Risks whose BoP dose-response is replaced by a log-linear literature curve.
 ALTERNATIVE_RR: dict[str, Path] = {"red_meat": RED_MEAT_RR_CSV}
 
-# Conversion of the RR-curve x-axis (and meat exposures) from GBD/GDD
-# "as-consumed" bases onto the model's fresh/dry consumption basis, so that a
-# consumption value can be looked up directly. Only legumes (cooked->dry) and
-# the meats (cooked->fresh) differ from 1.0; fruits & vegetables are
-# fresh->fresh and whole grains & nuts/seeds dry->dry. Values follow the
-# standard cooked-weight conversion factors (cooked rice/pasta/beans ~0.4 dry;
-# raw retail meat ~1.43x its cooked weight).
+# Conversion of RR-curve axes from their native GBD/literature basis to the
+# model input basis. Processed meat is already an as-eaten product basis and
+# therefore has no cooked/raw conversion; only legumes and fresh red meat are
+# converted here.
 MEAT_COOKED_TO_FRESH = 1.43
 LEGUMES_COOKED_TO_DRY = 0.40
 
 RR_BASIS_FACTOR: dict[str, float] = {
     "legumes": LEGUMES_COOKED_TO_DRY,
     "red_meat": MEAT_COOKED_TO_FRESH,
-    "processed_meat": MEAT_COOKED_TO_FRESH,
+    "processed_meat": 1.0,
 }
 
 # The 15 adult GBD age buckets the dietary RR curves span (>= 25 y).
@@ -1018,10 +1015,10 @@ def main() -> None:
     print("Building standard_life_table.csv ...")
     standard_life_table = build_standard_life_table()
 
-    # The baseline diet (a separate, bundled dataset) defines the country
-    # universe; every diet country must have complete burden inputs.
-    baseline_intake = pd.read_csv(OUT_DIR / "baseline_intake.csv")
-    diet_countries = set(baseline_intake["country"])
+    # The direct exposure baseline defines the country universe; every target
+    # country must have complete burden inputs.
+    baseline_exposure = pd.read_csv(OUT_DIR / "baseline_exposure.csv")
+    diet_countries = set(baseline_exposure["country"])
 
     print("Building local_life_table.csv ...")
     local_life_table = build_local_life_table(diet_countries)
@@ -1035,7 +1032,7 @@ def main() -> None:
             f"{len(missing)} baseline-diet countries lack complete burden data "
             f"(mortality/population/life table): {sorted(missing)[:20]}"
             f"{'...' if len(missing) > 20 else ''}. The baseline diet and burden "
-            "data may be out of sync; refresh the baseline diet too."
+            "data may be out of sync; refresh the baseline exposure table too."
         )
 
     keep = diet_countries

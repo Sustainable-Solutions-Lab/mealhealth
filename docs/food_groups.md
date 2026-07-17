@@ -25,7 +25,7 @@ food-group mass.
 | `legumes`        | no       | CHD               | **dry (uncooked) weight** |
 | `nuts_seeds`     | no       | CHD               | dry weight (as eaten) |
 | `red_meat`       | yes      | CHD, Stroke, T2DM, CRC | fresh raw (retail) weight |
-| `processed_meat` | yes      | CHD, T2DM, CRC    | fresh raw (retail) weight |
+| `processed_meat` | yes      | CHD, T2DM, CRC    | as-eaten product weight |
 
 Definitions follow the GBD dietary risk-factor definitions.
 
@@ -72,8 +72,10 @@ basis**, or the numbers will be off:
   Rough conversions if you only know the cooked weight: cooked grains ≈ 0.45 ×
   dry, cooked legumes ≈ 0.40 × dry (i.e. 150 g cooked brown rice ≈ 67 g dry;
   130 g cooked lentils ≈ 52 g dry).
-* **Fresh raw retail weight** — `red_meat`, `processed_meat`: the raw weight as
-  bought. Cooked meat ≈ 0.7 × raw (i.e. 100 g cooked ≈ 143 g raw).
+* **Fresh raw retail weight** — `red_meat`: the raw weight as bought. Cooked
+  meat ≈ 0.7 × raw (i.e. 100 g cooked ≈ 143 g raw).
+* **As-eaten product weight** — `processed_meat`: the product weight supplied
+  to the meal (for example, the stated weight of bacon, ham, or sausage).
 
 ### Red vs processed meat
 
@@ -83,8 +85,8 @@ with its own dose–response curve and its own baseline exposure:
 * `red_meat` — unprocessed beef, pork, lamb, goat.
 * `processed_meat` — bacon, ham, sausages, hot dogs, deli/cured meats.
 
-The per-country baseline split comes from the GDD-IA processed-meat fraction
-(Springmann 2026; see [Data sources](data_sources.md#baseline-diet)).
+The per-country baseline rows come directly from the GBD 2023 processed-meat
+and red-meat exposure files (see [Data sources](data_sources.md#direct-baseline-and-calories)).
 You can disable processed meat as a separate group with
 `include_processed_meat=False`, in which case only the seven-minus-one groups
 are modelled and any `processed_meat` you pass is rejected.

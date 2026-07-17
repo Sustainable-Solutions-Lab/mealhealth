@@ -141,7 +141,8 @@ BoP curves download automatically. Then run the relevant builders:
 
 ```bash
 uv run python tools/prepare_data.py
-uv run python tools/build_baseline_nutrients_from_gbd.py
+uv run python tools/build_baseline_exposure.py
+uv run python tools/build_baseline_calories.py
 uv run python tools/build_baseline_mediators_from_gbd.py
 uv run python tools/build_sodium_relative_risks.py
 ```
@@ -150,6 +151,5 @@ uv run python tools/build_sodium_relative_risks.py
 GBD 2019 age-shape donor table, analogous to the dietary age attenuation.
 
 See [`data_sources.md`](data_sources.md) for exactly which files to download and
-where to place them. The **baseline diet** (`baseline_intake.csv`,
-`baseline_calories.csv`) is a separate bundled dataset and is not built by this
-tool — see the "Baseline diet" section of that document.
+where to place them. The direct exposure and calorie baselines are independent
+builders; sodium/SBP remains a separate mediator build.

@@ -22,9 +22,9 @@ src/mealhealth/
   api.py          # public assess_meal() and helpers
   data/*.csv      # bundled processed data (+ DATA_PROVENANCE.md)
 tools/prepare_data.py              # regenerate health/demographic data from raw (dev only)
-tools/build_baseline_nutrients_from_gbd.py # build GBD/WPP nutrient baselines
+tools/build_baseline_exposure.py        # build GBD/WPP direct baselines
+tools/build_baseline_calories.py        # build GDD-IA/WPP calorie baselines
 tools/generate_rr_age_attenuation.py # one-off: curated RR age-attenuation table from GBD 2019
-tools/baseline_diet_from_glade.py  # build baseline diet (temporary; see docstring)
 tools/reference/*.csv              # curated regeneration inputs (red-meat RR, TMREL, age attenuation)
 tests/                  # pytest suite
 docs/                   # Sphinx site: conf.py + Markdown pages (MyST), built with furo
@@ -84,20 +84,12 @@ The RR age structure and TMRELs are read from curated tables under
 rebuilds `rr_age_attenuation.csv` from the GBD 2019 RR workbook (the only
 remaining use of GBD 2019, as the donor for the age shape).
 
-The baseline diet (`baseline_intake.csv`, `baseline_calories.csv`) is a separate
-bundled dataset; its committed CSVs are canonical and need no regeneration.
-`tools/baseline_diet_from_glade.py` is a **temporary** builder sourcing it from
-the **GLADE** project (the Global Land, Agriculture, Diet and Emissions model)
-until the baseline diet itself is published on Zenodo — the only place the
-project still references GLADE. GLADE is still needed for the *reconciled*
-intake table; the underlying GDD-IA data is itself published and CC-BY-4.0
-(Springmann 2026, doi:10.1038/s43016-026-01388-z).
-
-The seafood EPA+DHA baseline (`baseline_nutrients.csv`) is independently built
-from the dietary files in the official GBD 2023 Risk Exposure Estimates
-1990–2023 and WPP population weights with
-`tools/build_baseline_nutrients_from_gbd.py`; it has no GLADE dependency. The
-authenticated raw-download instructions are in `docs/data_sources.md`.
+The direct baseline (`baseline_exposure.csv`) is built from the seven dietary
+food-group files plus seafood EPA+DHA in the official GBD 2023 Risk Exposure
+Estimates, using WPP population weights. `baseline_calories.csv` is built from
+the public GDD-IA 2020 calorie table and WPP weights. The checked-in source
+manifest under `tools/reference/` pins the 175-country target set and proxies.
+There is no sibling-project runtime or regeneration dependency.
 
 ## Validation
 
