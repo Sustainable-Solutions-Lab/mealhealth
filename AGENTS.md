@@ -62,6 +62,7 @@ and installs the project plus the `dev` dependency group (defined in
 
 ```bash
 uv run pytest -q
+uv run mypy
 uv run ruff format . && uv run ruff check .
 uv run reuse lint
 uv run --group docs sphinx-build -b html docs docs/_build/html   # build the docs site

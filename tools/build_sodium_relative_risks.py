@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 import urllib.parse
 import urllib.request
 
@@ -36,7 +37,7 @@ CURVES = {
 }
 
 
-def _get(endpoint: str, **params: int) -> object:
+def _get(endpoint: str, **params: int) -> Any:
     query = urllib.parse.urlencode(params)
     url = f"{BOP_API_BASE}/{endpoint}?{query}"
     request = urllib.request.Request(  # noqa: S310 - pinned HTTPS host
@@ -56,7 +57,10 @@ def build_relative_risks() -> pd.DataFrame:
 
     rows: list[dict[str, object]] = []
     for curve_cause, (path, rei_id, cause_id, unit, stars) in CURVES.items():
-        metadata = _get("risk_cause_metadata", risk=rei_id, cause=cause_id)
+        metadata = cast(
+            dict[str, Any],
+            _get("risk_cause_metadata", risk=rei_id, cause=cause_id),
+        )
         if metadata.get("risk_unit") != unit:
             raise ValueError(
                 f"{curve_cause}: expected unit {unit!r}, got "
@@ -67,7 +71,10 @@ def build_relative_risks() -> pd.DataFrame:
                 f"{curve_cause}: expected {stars} stars, got "
                 f"{metadata.get('star_rating')!r}"
             )
-        curve = _get("output_data", risk=rei_id, cause=cause_id)
+        curve = cast(
+            list[dict[str, Any]],
+            _get("output_data", risk=rei_id, cause=cause_id),
+        )
         exposure = [float(point["risk"]) for point in curve]
         if (
             len(exposure) < 2

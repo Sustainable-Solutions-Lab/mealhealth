@@ -65,7 +65,8 @@ def _validate_structure(reference: dict[str, Any]) -> None:
         raise ValueError("Unsupported sodium coefficient schema")
     if reference.get("canonical_unit") != "mm Hg per g/day urinary sodium":
         raise ValueError("Unexpected canonical sodium-to-SBP unit")
-    if not np.isclose(reference.get("grams_sodium_per_100_mmol"), 2.299):
+    conversion = reference.get("grams_sodium_per_100_mmol")
+    if not isinstance(conversion, (int, float)) or not np.isclose(conversion, 2.299):
         raise ValueError("Unexpected sodium mass conversion")
     recovery = reference.get("dietary_to_urinary", {})
     if not (

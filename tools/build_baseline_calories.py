@@ -33,18 +33,13 @@ def _wpp_band_weights(countries: set[str], path: Path) -> pd.DataFrame:
         & frame["ISO3_code"].isin(countries)
     ].copy()
     frame["AgeGrpStart"] = pd.to_numeric(frame["AgeGrpStart"], errors="coerce")
-    frame["band"] = np.select(
-        [
-            frame["AgeGrpStart"].between(25, 35),
-            frame["AgeGrpStart"].between(40, 60),
-            frame["AgeGrpStart"] >= 65,
-        ],
-        ["20-39", "40-64", "65+"],
-        default=None,
-    )
+    frame["band"] = pd.Series(pd.NA, index=frame.index, dtype="string")
+    frame.loc[frame["AgeGrpStart"].between(25, 35), "band"] = "20-39"
+    frame.loc[frame["AgeGrpStart"].between(40, 60), "band"] = "40-64"
+    frame.loc[frame["AgeGrpStart"] >= 65, "band"] = "65+"
     frame = frame[frame["band"].notna()]
     frame["population"] = frame["PopMale"] + frame["PopFemale"]
-    out = frame.groupby(["ISO3_code", "band"], as_index=False)["population"].sum()
+    out = frame.groupby(["ISO3_code", "band"], as_index=False)[["population"]].sum()
     expected = pd.MultiIndex.from_product(
         [sorted(countries), ["20-39", "40-64", "65+"]], names=["ISO3_code", "band"]
     )
