@@ -89,4 +89,4 @@ uv run --group docs sphinx-build -b html docs /tmp/mealhealth-docs
 The committed tables are deterministic derivatives. Raw IHME files are not
 redistributed; users regenerating them must comply with the applicable IHME
 non-commercial terms and retain the source attribution documented in
-`docs/data_sources.md`.
+`docs/model/data_sources.md`.

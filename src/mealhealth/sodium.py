@@ -53,7 +53,7 @@ class SodiumMeanShiftModel:
 
     This is a mean-field approximation: each stratum is represented by its GBD
     mean urinary sodium and mean SBP. It does not reconstruct the distribution
-    of either exposure between people. See ``docs/methodology.md``.
+    of either exposure between people. See ``docs/model/methodology.md``.
     """
 
     def __init__(self, country: str):

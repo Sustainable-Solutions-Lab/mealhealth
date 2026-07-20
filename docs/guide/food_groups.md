@@ -86,7 +86,7 @@ with its own dose–response curve and its own baseline exposure:
 * `processed_meat` — bacon, ham, sausages, hot dogs, deli/cured meats.
 
 The per-country baseline rows come directly from the GBD 2023 processed-meat
-and red-meat exposure files (see [Data sources](data_sources.md#direct-baseline-and-calories)).
+and red-meat exposure files (see [Data sources](../model/data_sources.md#baseline-exposure)).
 You can disable processed meat as a separate group with
 `include_processed_meat=False`. That drops the group from the model entirely —
 the country's baseline processed-meat intake goes too, not just the meal's — so

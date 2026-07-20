@@ -19,7 +19,7 @@ should be supplied. These match the basis in which the bundled relative-risk
 curves and baseline diet are expressed, so they must be respected for the
 numbers to be meaningful. Most groups are fresh / as-eaten weight; cereals,
 legumes and nuts are dry (uncooked) weight, which is how GBD defines their
-exposure. See :data:`FOOD_GROUPS` and ``docs/food_groups.md``.
+exposure. See :data:`FOOD_GROUPS` and ``docs/guide/food_groups.md``.
 """
 
 from __future__ import annotations

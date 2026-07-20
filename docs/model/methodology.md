@@ -20,7 +20,7 @@ their GBD 2023 TMREL during preparation. Sodium is the exception: its uncertain
 urinary-sodium TMREL is integrated explicitly in the mediator calculation. See
 [Data sources](data_sources.md).
 
-```{figure} _static/method_overview.svg
+```{figure} ../_static/method_overview.svg
 :alt: A meal is substituted into the country baseline diet at equal calories; the resulting change in each food group's intake is read off its risk curve and turned into a change in years of life.
 :width: 100%
 
@@ -263,27 +263,11 @@ result, so it still requires bundled mortality, population, and life tables.
 
 ## Caveats
 
-* "Years lost/gained if you ate this for the rest of your life" is the headline;
-  any single-meal number is a marginal attribution, not a biological
-  single-meal effect.
-* Foods outside the GBD risk groups affect the result only via caloric
-  displacement of the baseline.
-* `delta_yll_local_total` is reconstructed as deaths times remaining life
-  expectancy using the country's own period life table; `delta_yll_total`
-  remains an alias. `delta_yll_standard_total` uses GBD's aspirational
-  reference life table and is a standardized potential-life-loss measure, not
-  a forecast of years that this intervention alone would realize under current
-  local mortality.
-* Sodium uses a central mean-shift approximation. It does not propagate
-  uncertainty in baseline exposure, recovery, the sodium-to-SBP slope, or RR
-  curves, and it does not represent within-stratum sodium or SBP variation.
-  These omissions are expected to matter because the RR curves are nonlinear.
-* Sugar-sweetened beverages are not modelled.
-* Red-meat RR uses literature log-linear curves
-  (Bechthold et al. 2019 for CHD/Stroke, Li et al. 2024 for T2DM,
-  Chan et al. 2011 for CRC), which are calibrated on *unprocessed* red meat and
-  thus appropriate now that processed meat is separated out. Processed meat uses
-  the GBD 2023 Burden-of-Proof dose–response curves directly (CHD/T2DM/CRC; no
-  ischemic stroke curve). `nuts_seeds` maps to CHD only because GBD 2023 does
-  not provide a T2DM curve. Seafood omega-3 uses the GBD 2023 CHD curve
-  directly and is clipped at its 0.565 g/day midpoint TMREL.
+Every simplification above has consequences for how far a result can be
+trusted, and they are collected in [Limitations](limitations.md). The ones that
+change how you should read a number, rather than how precise it is: the
+headline quantity is a lifetime-daily-consumption estimand and not a
+single-meal effect; foods outside the risk groups act only through caloric
+displacement; population and individual modes are different quantities in
+different units; and sodium is a central mean-shift approximation with no
+uncertainty interval.

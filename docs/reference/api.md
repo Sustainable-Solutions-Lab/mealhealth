@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # API reference
 
 Everything below is importable directly from the top-level `mealhealth`
-package. For narrative usage and worked examples, see [Usage](usage.md).
+package. For narrative usage and worked examples, see [Quickstart](../guide/quickstart.md).
 
 ```{eval-rst}
 .. currentmodule:: mealhealth

@@ -24,7 +24,7 @@ Outputs (schemas documented in ``src/mealhealth/data/DATA_PROVENANCE.md``):
 - ``standard_life_table.csv`` GBD 2023 theoretical minimum-risk life
                           expectancy: age, ex
 
-Raw inputs live under ``data/raw/`` (see ``docs/data_sources.md`` for how to
+Raw inputs live under ``data/raw/`` (see ``docs/development/data_build.md`` for how to
 obtain each one). The WHO mortality data, two UN WPP files, and GBD 2023
 Burden-of-Proof RR curves are fetched automatically. The relative-risk age
 structure and TMRELs come from curated tables under
@@ -32,7 +32,7 @@ structure and TMRELs come from curated tables under
 
 The direct exposure and calorie baselines are separate datasets and are **not**
 built here. This module is an internal stage invoked by
-``tools/build_data.py``; see ``docs/data_sources.md`` for the workflow.
+``tools/build_data.py``; see ``docs/development/data_build.md`` for the workflow.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ OUT_DIR = ROOT / "src" / "mealhealth" / "data"
 
 REFERENCE_YEAR = 2020
 
-# Raw inputs (placed under data/raw/; see docs/data_sources.md).
+# Raw inputs (placed under data/raw/; see docs/development/data_build.md).
 WHO_GHE_MORTALITY_CSV = RAW_DIR / "WHO_GHE_2021_mortality_2020.csv"
 GBD_REFERENCE_LIFE_TABLE_CSV = (
     RAW_DIR / "IHME_GBD_2023_DEMOGRAPHICS_1950_2023_TMRLT_Y2025M06D09.CSV"

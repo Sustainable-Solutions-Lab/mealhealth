@@ -20,7 +20,7 @@ from .model import MealAssessment, assess
 # A nominal number of meals over an adult lifetime, used to express the
 # lifetime effect as a per-meal marginal attribution. ~3 meals/day for
 # ~60 adult years. This is a linear/marginal attribution, NOT a biological
-# single-meal effect (see docs/methodology.md).
+# single-meal effect (see docs/model/methodology.md).
 MEALS_PER_LIFETIME = 3 * 365 * 60
 
 

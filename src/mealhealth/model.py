@@ -4,7 +4,7 @@
 
 """Core health-impact calculation engine.
 
-Implements the formulas in ``docs/methodology.md``:
+Implements the formulas in ``docs/model/methodology.md``:
 
 * ``RR_{r,d}(x)`` read off the GBD dose-response curve by log-linear
   interpolation;

@@ -972,5 +972,5 @@ reference beyond a pinned tolerance.
   2018;20:1220-1229. <https://doi.org/10.1111/jch.13353>
 
 Every downloaded source and fitted artifact must also be recorded in
-`docs/data_sources.md` and `src/mealhealth/data/DATA_PROVENANCE.md` when sodium
+`docs/model/data_sources.md` and `src/mealhealth/data/DATA_PROVENANCE.md` when sodium
 is implemented.

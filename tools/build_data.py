@@ -5,12 +5,13 @@
 """Regenerate all processed data bundled with :mod:`mealhealth`.
 
 The public raw files which cannot be downloaded automatically must be placed
-under ``data/raw/`` first; see ``docs/data_sources.md``.
+under ``data/raw/`` first; see ``docs/development/data_build.md``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import argparse
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import tempfile
@@ -127,9 +128,45 @@ def check_manual_inputs() -> None:
     lines = [
         "Missing manually downloaded data required for the mealhealth data build:",
         *(f"  - {path.relative_to(ROOT)}" for path in missing),
-        "See docs/data_sources.md for download instructions.",
+        "Run 'python -m tools.build_data --list-inputs' for the full list, or "
+        "see docs/development/data_build.md for download instructions.",
     ]
     raise FileNotFoundError("\n".join(lines))
+
+
+def pinned_digests() -> dict[Path, str]:
+    """Return the pinned SHA-256 for every manual input that has one."""
+
+    return {
+        source.path(RAW): source.sha256
+        for source in (
+            *dietary_exposure_sources.DIRECT_SOURCES.values(),
+            *dietary_exposure_sources.MEDIATOR_SOURCES.values(),
+        )
+    }
+
+
+def list_manual_inputs() -> None:
+    """Print every manually staged input, its status, and its pinned digest.
+
+    This is the authoritative list; the documentation points here rather than
+    repeating it, so the two cannot drift apart.
+    """
+
+    digests = pinned_digests()
+    inputs = manual_inputs()
+    print(f"{len(inputs)} manually staged inputs, relative to {ROOT}:\n")
+    for path in inputs:
+        status = "present" if path.exists() else "MISSING"
+        print(f"[{status:>7}] {path.relative_to(ROOT)}")
+        digest = digests.get(path)
+        if digest:
+            print(f"            sha256 {digest}")
+    missing = sum(1 for path in inputs if not path.exists())
+    print(
+        f"\n{len(inputs) - missing} present, {missing} missing. "
+        "See docs/development/data_build.md for where to download each one."
+    )
 
 
 def run_stage(stage: Stage, output_dir: Path) -> None:
@@ -163,8 +200,19 @@ def publish_outputs(stages: tuple[Stage, ...], staging_dir: Path) -> None:
         (staging_dir / name).replace(PACKAGED_DATA / name)
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     """Validate manual inputs, download public inputs, and run every stage."""
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--list-inputs",
+        action="store_true",
+        help="list the manually staged raw inputs and exit without building",
+    )
+    args = parser.parse_args(argv)
+    if args.list_inputs:
+        list_manual_inputs()
+        return
 
     check_manual_inputs()
     print("Ensuring automatically downloadable public inputs are available ...")

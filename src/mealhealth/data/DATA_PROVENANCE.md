@@ -11,8 +11,8 @@ produced by `tools/build_data.py` from public raw datasets (WHO GHE, IHME GBD,
 UN WPP);
 the direct-exposure and mediator baselines are built directly from GBD risk
 exposure (and WPP weights); calories are built from the public GDD-IA table (see
-`docs/data_sources.md`).
-See `docs/data_sources.md` for sources and licensing (non-commercial).
+`docs/model/data_sources.md`).
+See `docs/model/data_sources.md` for sources and licensing (non-commercial).
 Reference year: mortality/population 2020; life table 2024 (nearest available in
 the UN WPP abridged file); intake circa 2018–2020.
 
@@ -83,7 +83,7 @@ causes are CHD, ischemic stroke, haemorrhagic stroke, diabetes mellitus,
 colorectal cancer, stomach cancer, and chronic kidney disease. The last is the
 sum of WHO cause IDs 1272 and 1273. WHO's single `85+` rate is repeated over
 the model's `85–89`, `90–94`, and `95+` bands. Five places without a WHO Member
-State row use the documented country proxies in `docs/data_sources.md`.
+State row use the documented country proxies in `docs/model/data_sources.md`.
 The WHO source country used for each record is retained in `source_country`.
 Source attribution: World Health Organization, *Global Health Estimates 2021:
 Deaths by Cause, Age, Sex, by Country and by Region, 2000–2021*, Geneva: WHO,
