@@ -63,7 +63,9 @@ def assess_meal(
         Required when ``mode="age"``; the person's current age in years,
         at least 25 (the lower bound of the bundled adult risk curves).
     include_processed_meat:
-        Model processed meat as a separate harmful group (default True).
+        Model processed meat as a separate harmful group (default True). When
+        False the group is dropped from the model entirely, baseline included,
+        and passing ``"processed_meat"`` in ``meal`` is an error.
     relative_only:
         If True, suppress absolute YLL and report only the relative metric
         (per-cause PAF). It uses the same sex-specific burden weights as the

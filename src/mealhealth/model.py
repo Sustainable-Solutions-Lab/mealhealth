@@ -525,6 +525,13 @@ def assess(
             f"Valid risk-factor groups: {list(RISK_FACTORS)}. Foods outside "
             "these groups affect the result only via meal_kcal."
         )
+    if not include_processed_meat and "processed_meat" in meal:
+        raise ValueError(
+            "include_processed_meat=False excludes processed meat from the "
+            "model entirely, so 'processed_meat' cannot be supplied in the "
+            "meal. Drop the key, or leave include_processed_meat at its "
+            "default so the group is assessed."
+        )
 
     nutrient_amounts: dict[str, float] = {}
     if seafood_omega3_mg is not None:

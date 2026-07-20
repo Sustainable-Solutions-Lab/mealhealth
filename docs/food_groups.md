@@ -88,8 +88,10 @@ with its own dose–response curve and its own baseline exposure:
 The per-country baseline rows come directly from the GBD 2023 processed-meat
 and red-meat exposure files (see [Data sources](data_sources.md#direct-baseline-and-calories)).
 You can disable processed meat as a separate group with
-`include_processed_meat=False`, in which case only the seven-minus-one groups
-are modelled and any `processed_meat` you pass is rejected.
+`include_processed_meat=False`. That drops the group from the model entirely —
+the country's baseline processed-meat intake goes too, not just the meal's — so
+only the remaining six groups are assessed. Passing `processed_meat` in the meal
+alongside the flag raises `ValueError` rather than silently discarding it.
 
 ## Inspecting the definitions programmatically
 
