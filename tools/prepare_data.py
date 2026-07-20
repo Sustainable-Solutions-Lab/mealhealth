@@ -998,10 +998,10 @@ def build_standard_life_table() -> pd.DataFrame:
 # --------------------------------------------------------------------------
 
 
-def build_health_data() -> dict[str, pd.DataFrame]:
+def build_health_data(*, output_dir: Path = OUT_DIR) -> dict[str, pd.DataFrame]:
     """Build and write the health and demographic package data."""
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     print("Building relative_risks.csv ...")
     rr = build_relative_risks()
@@ -1014,7 +1014,7 @@ def build_health_data() -> dict[str, pd.DataFrame]:
 
     # The direct exposure baseline defines the country universe; every target
     # country must have complete burden inputs.
-    baseline_exposure = pd.read_csv(OUT_DIR / "baseline_exposure.csv")
+    baseline_exposure = pd.read_csv(output_dir / "baseline_exposure.csv")
     diet_countries = set(baseline_exposure["country"])
 
     print("Building local_life_table.csv ...")
@@ -1046,7 +1046,7 @@ def build_health_data() -> dict[str, pd.DataFrame]:
         "standard_life_table": standard_life_table,
     }
     for name, frame in outputs.items():
-        frame.to_csv(OUT_DIR / f"{name}.csv", index=False)
+        frame.to_csv(output_dir / f"{name}.csv", index=False)
 
     print("\nWrote:")
     for name, frame in outputs.items():

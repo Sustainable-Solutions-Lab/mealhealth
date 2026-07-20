@@ -13,17 +13,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-import sys
+import tempfile
 
-ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "data" / "raw"
-PACKAGED_DATA = ROOT / "src" / "mealhealth" / "data"
-
-# Make the development-only tools importable when this file is run directly.
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from tools import (  # noqa: E402
+from tools import (
     build_baseline_calories,
     build_baseline_exposure,
     build_baseline_mediators_from_gbd,
@@ -32,30 +24,62 @@ from tools import (  # noqa: E402
     prepare_data,
 )
 
+ROOT = Path(__file__).resolve().parent.parent
+RAW = ROOT / "data" / "raw"
+PACKAGED_DATA = ROOT / "src" / "mealhealth" / "data"
+
 
 @dataclass(frozen=True)
 class Stage:
     """One ordered builder function and the files it must produce."""
 
     name: str
-    runner: Callable[[], object]
+    runner: Callable[[Path], object]
     outputs: tuple[str, ...]
+
+
+def _build_baseline_exposure(output_dir: Path) -> object:
+    return build_baseline_exposure.build_and_write_baseline_exposure(
+        output=output_dir / "baseline_exposure.csv"
+    )
+
+
+def _build_baseline_calories(output_dir: Path) -> object:
+    return build_baseline_calories.build_and_write_baseline_calories(
+        output=output_dir / "baseline_calories.csv"
+    )
+
+
+def _build_health_data(output_dir: Path) -> object:
+    return prepare_data.build_health_data(output_dir=output_dir)
+
+
+def _build_baseline_mediators(output_dir: Path) -> object:
+    return build_baseline_mediators_from_gbd.build_and_write_baseline_mediators(
+        output=output_dir / "baseline_mediators.csv"
+    )
+
+
+def _build_sodium_relative_risks(output_dir: Path) -> object:
+    return build_sodium_relative_risks.build_and_write_relative_risks(
+        output=output_dir / "sodium_relative_risks.csv"
+    )
 
 
 STAGES = (
     Stage(
         "direct exposure baseline",
-        build_baseline_exposure.build_and_write_baseline_exposure,
+        _build_baseline_exposure,
         ("baseline_exposure.csv",),
     ),
     Stage(
         "calorie baseline",
-        build_baseline_calories.build_and_write_baseline_calories,
+        _build_baseline_calories,
         ("baseline_calories.csv",),
     ),
     Stage(
         "health and demographic data",
-        prepare_data.build_health_data,
+        _build_health_data,
         (
             "relative_risks.csv",
             "mortality.csv",
@@ -66,12 +90,12 @@ STAGES = (
     ),
     Stage(
         "sodium mediator baseline",
-        build_baseline_mediators_from_gbd.build_and_write_baseline_mediators,
+        _build_baseline_mediators,
         ("baseline_mediators.csv",),
     ),
     Stage(
         "sodium and SBP relative risks",
-        build_sodium_relative_risks.build_and_write_relative_risks,
+        _build_sodium_relative_risks,
         ("sodium_relative_risks.csv",),
     ),
 )
@@ -110,19 +134,35 @@ def check_manual_inputs() -> None:
     raise FileNotFoundError("\n".join(lines))
 
 
-def run_stage(stage: Stage) -> None:
+def run_stage(stage: Stage, output_dir: Path) -> None:
     """Run one builder function and verify its declared outputs."""
 
     print(f"\n==> {stage.name}")
-    stage.runner()
+    stage.runner(output_dir)
     missing = [
-        PACKAGED_DATA / output
+        output_dir / output
         for output in stage.outputs
-        if not (PACKAGED_DATA / output).exists()
+        if not (output_dir / output).is_file()
     ]
     if missing:
-        names = ", ".join(str(path.relative_to(ROOT)) for path in missing)
+        names = ", ".join(str(path) for path in missing)
         raise RuntimeError(f"{stage.name} completed without writing: {names}")
+
+
+def publish_outputs(stages: tuple[Stage, ...], staging_dir: Path) -> None:
+    """Publish verified staged outputs to the package data directory."""
+
+    output_names = [name for stage in stages for name in stage.outputs]
+    if len(output_names) != len(set(output_names)):
+        raise RuntimeError("Data-build stages declare duplicate output files")
+    missing = [name for name in output_names if not (staging_dir / name).is_file()]
+    if missing:
+        raise RuntimeError(
+            f"Cannot publish missing staged outputs: {', '.join(missing)}"
+        )
+    PACKAGED_DATA.mkdir(parents=True, exist_ok=True)
+    for name in output_names:
+        (staging_dir / name).replace(PACKAGED_DATA / name)
 
 
 def main() -> None:
@@ -131,8 +171,14 @@ def main() -> None:
     check_manual_inputs()
     print("Ensuring automatically downloadable public inputs are available ...")
     prepare_data.ensure_raw_downloads()
-    for stage in STAGES:
-        run_stage(stage)
+    PACKAGED_DATA.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=".mealhealth-data-build-", dir=PACKAGED_DATA.parent
+    ) as temporary_dir:
+        staging_dir = Path(temporary_dir)
+        for stage in STAGES:
+            run_stage(stage, staging_dir)
+        publish_outputs(STAGES, staging_dir)
     print("\nData build completed successfully.")
 
 

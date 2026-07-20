@@ -9,22 +9,15 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-try:
-    from dietary_exposure_sources import (
-        MANIFEST_PATH,
-        REFERENCE_YEAR,
-        WPP_POPULATION_PATH,
-        read_manifest,
-    )
-except ModuleNotFoundError:  # importlib-based tests load this file as a module
-    from tools.dietary_exposure_sources import (
-        MANIFEST_PATH,
-        REFERENCE_YEAR,
-        WPP_POPULATION_PATH,
-        read_manifest,
-    )
 import numpy as np
 import pandas as pd
+
+from tools.dietary_exposure_sources import (
+    MANIFEST_PATH,
+    REFERENCE_YEAR,
+    WPP_POPULATION_PATH,
+    read_manifest,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE = ROOT / "data" / "raw" / "GDD-IA-intake_kcals_2020.csv"

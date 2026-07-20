@@ -77,7 +77,7 @@ what to download into `data/raw/`; the UN WPP files, WHO mortality, location
 hierarchy, and public GBD Burden-of-Proof curves download automatically:
 
 ```bash
-uv run python tools/build_data.py
+uv run python -m tools.build_data
 ```
 
 The command runs the direct exposure baseline, calorie baseline, health and

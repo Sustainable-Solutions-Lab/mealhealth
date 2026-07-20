@@ -27,11 +27,12 @@ are:
 After placing the manually downloaded files under `data/raw/`, run:
 
 ```bash
-uv run python tools/build_data.py
+uv run python -m tools.build_data
 ```
 
-The command first ensures the public downloads are available, then validates
-the required manual inputs and runs the stages in dependency order.
+The command first validates the required manual inputs, then ensures the public
+downloads are available and runs the stages in dependency order. Generated
+files are staged and published to the package only after every stage succeeds.
 
 ## What's bundled
 

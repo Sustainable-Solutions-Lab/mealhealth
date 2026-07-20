@@ -140,7 +140,7 @@ Download the authenticated exposure and reference-life-table files into
 BoP curves download automatically. Then run:
 
 ```bash
-uv run python tools/build_data.py
+uv run python -m tools.build_data
 ```
 
 The command checks the manually staged files and runs the data-build stages in

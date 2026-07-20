@@ -104,7 +104,7 @@ To regenerate all bundled data after placing the manually downloaded raw files
 under `data/raw/`, run:
 
 ```bash
-uv run python tools/build_data.py
+uv run python -m tools.build_data
 ```
 
 ## Licensing (important)
