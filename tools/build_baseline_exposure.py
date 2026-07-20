@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 
 from tools.dietary_exposure_sources import (
-    ADULT_AGE_START,
     BASIS_FACTORS,
     DIRECT_SOURCES,
     MANIFEST_PATH,
@@ -27,6 +26,7 @@ from tools.dietary_exposure_sources import (
     national_locations,
     read_exposure,
     read_manifest,
+    select_exposure_cells,
     wpp_age_sex_weights,
 )
 
@@ -45,28 +45,19 @@ def build_baseline_exposure(
     location_hierarchy_path = location_hierarchy_path or (
         ROOT / "data" / "raw" / "IHME_GBD_2021_A1_HIERARCHIES_Y2024M05D15.XLSX"
     )
-    if (
-        not location_hierarchy_path.exists()
-        and not (ROOT / "data" / "raw" / "IHME-GBD_2023-death-rates-2020.csv").exists()
-    ):
-        ensure_location_hierarchy(location_hierarchy_path)
+    ensure_location_hierarchy(location_hierarchy_path)
     locations = national_locations(location_hierarchy_path)
     source_countries = set(manifest["gbd_exposure_source_country"])
     weights = wpp_age_sex_weights(source_countries, wpp_path)
     rows: list[pd.DataFrame] = []
     for risk_factor, source in DIRECT_SOURCES.items():
-        frame = read_exposure(source, verify_checksum=verify_checksum)
-        frame = frame[
-            (frame["year_id"] == REFERENCE_YEAR)
-            & frame["age_group_id"].isin(ADULT_AGE_START)
-        ].merge(locations, on="location_id", how="inner", validate="many_to_one")
-        frame = frame[frame["source_country"].isin(source_countries)].copy()
+        frame = select_exposure_cells(
+            read_exposure(source, verify_checksum=verify_checksum),
+            label=risk_factor,
+            locations=locations,
+            source_countries=source_countries,
+        )
         key = ["source_country", "age_group_id", "sex_id"]
-        if frame.duplicated(key).any():
-            raise ValueError(f"Duplicate {risk_factor} GBD age-sex cells")
-        missing = source_countries - set(frame["source_country"])
-        if missing:
-            raise ValueError(f"GBD {risk_factor} exposure missing: {sorted(missing)}")
         merged = frame.merge(weights, on=key, how="left", validate="one_to_one")
         if merged["population"].isna().any():
             raise ValueError(f"Missing WPP weight for {risk_factor}")

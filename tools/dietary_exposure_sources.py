@@ -89,14 +89,15 @@ BASIS_FACTORS = {
 
 @dataclass(frozen=True)
 class ExposureSource:
-    risk_factor: str
+    """Pinned GBD continuous-exposure source."""
+
+    name: str
     relative_path: str
     sha256: str
     unit: str
 
-    @property
-    def path(self) -> Path:
-        return RAW_DIR / self.relative_path
+    def path(self, raw_dir: Path = RAW_DIR) -> Path:
+        return raw_dir / self.relative_path
 
 
 DIRECT_SOURCES = {
@@ -159,6 +160,28 @@ DIRECT_SOURCES = {
     ),
 }
 
+MEDIATOR_SOURCES = {
+    "sodium_urinary": ExposureSource(
+        name="sodium_urinary",
+        relative_path=(
+            "IHME_GBD_2023_RISK_EXPOSURE_DIET_1/"
+            "IHME_GBD_2023_RISK_EXPOSURE_DIET_HIGH_IN_SODIUM_Y2025M10D10.CSV"
+        ),
+        sha256=("0ea88321aba71f3c4cba0ca02472928ff06c78600e3a0a182bae4588217d23fd"),
+        unit="g/day (24 h urinary sodium)",
+    ),
+    "sbp": ExposureSource(
+        name="sbp",
+        relative_path=(
+            "IHME_GBD_2023_RISK_EXPOSURE_OTHER_1/"
+            "IHME_GBD_2023_RISK_EXPOSURE_HIGH_SYSTOLIC_BLOOD_PRESSURE_"
+            "Y2025M10D10.CSV"
+        ),
+        sha256=("dd317224c33981577ae910f0dd97b6f205de7067b21fee29cefd6736aecaf27e"),
+        unit="mm Hg",
+    ),
+}
+
 COUNTRY_NAME_OVERRIDES = {
     "Bolivia (Plurinational State of)": "BOL",
     "Bonaire, Saint Eustatius and Saba": "BES",
@@ -197,7 +220,11 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_manifest(path: Path = MANIFEST_PATH) -> pd.DataFrame:
+def read_manifest(
+    path: Path = MANIFEST_PATH, *, expected_country_count: int | None = 175
+) -> pd.DataFrame:
+    """Read and validate the shared baseline country/source manifest."""
+
     frame = pd.read_csv(path, dtype=str)
     expected = ["country", "gbd_exposure_source_country", "calorie_source_country"]
     if list(frame.columns) != expected:
@@ -209,8 +236,15 @@ def read_manifest(path: Path = MANIFEST_PATH) -> pd.DataFrame:
         or frame[expected].duplicated("country").any()
     ):
         raise ValueError("Baseline source manifest has missing or duplicate countries")
-    if len(frame) != 175 or not frame["country"].str.fullmatch(r"[A-Z]{3}").all():
-        raise ValueError("Baseline source manifest must contain 175 ISO-3 countries")
+    if expected_country_count is not None and len(frame) != expected_country_count:
+        raise ValueError(
+            f"Baseline source manifest must contain {expected_country_count} countries"
+        )
+    valid_codes = frame[expected].apply(
+        lambda column: column.str.fullmatch(r"[A-Z]{3}").all()
+    )
+    if frame.empty or not valid_codes.all():
+        raise ValueError("Baseline source manifest country/source codes must be ISO-3")
     return frame.sort_values("country").reset_index(drop=True)
 
 
@@ -225,18 +259,32 @@ def map_country(name: str) -> str | None:
 
 
 def read_exposure(
-    source: ExposureSource, *, verify_checksum: bool = True
+    source: ExposureSource,
+    *,
+    raw_dir: Path = RAW_DIR,
+    verify_checksum: bool = True,
 ) -> pd.DataFrame:
-    path = source.path
+    """Read and validate one complete GBD 2023 continuous-exposure file."""
+
+    path = source.path(raw_dir)
     if not path.exists():
-        raise FileNotFoundError(f"Missing GBD exposure input: {path}")
-    if verify_checksum and sha256(path) != source.sha256:
-        raise ValueError(
-            f"SHA-256 mismatch for {path.name}; update the pinned source intentionally"
+        raise FileNotFoundError(
+            f"Missing GBD {source.name} exposure input:\n  {path}\n"
+            "See docs/data_sources.md for authenticated download instructions."
         )
+    if verify_checksum:
+        actual = sha256(path)
+        if actual != source.sha256:
+            raise ValueError(
+                f"SHA-256 mismatch for {path.name}: expected {source.sha256}, "
+                f"got {actual}. Update the pinned source intentionally."
+            )
     frame = pd.read_csv(path)
     if list(frame.columns) != EXPOSURE_COLUMNS:
-        raise ValueError(f"Unexpected schema for {path.name}")
+        raise ValueError(
+            f"Unexpected schema for {path.name}: expected {EXPOSURE_COLUMNS}, "
+            f"got {list(frame.columns)}"
+        )
     if set(frame["measure_id"].unique()) != {19} or set(frame["measure"].unique()) != {
         "continuous"
     }:
@@ -248,10 +296,17 @@ def read_exposure(
         (2, "Female"),
     }:
         raise ValueError("Unexpected GBD sex structure")
-    if set(frame["age_group_id"].unique()) & set(ADULT_AGE_START) != set(
-        ADULT_AGE_START
-    ):
-        raise ValueError("GBD exposure is missing adult age groups")
+    missing_ages = set(ADULT_AGE_START) - set(frame["age_group_id"].unique())
+    if missing_ages:
+        raise ValueError(f"GBD exposure is missing adult ages: {sorted(missing_ages)}")
+    observed_age_names = set(
+        frame.loc[
+            frame["age_group_id"].isin(ADULT_AGE_START),
+            ["age_group_id", "age_group_name"],
+        ].itertuples(index=False, name=None)
+    )
+    if observed_age_names != set(ADULT_AGE_NAME.items()):
+        raise ValueError(f"Unexpected GBD adult age names in {path.name}")
     for column in ("mean", "lower", "upper"):
         frame[column] = pd.to_numeric(frame[column], errors="coerce")
     if (
@@ -264,8 +319,15 @@ def read_exposure(
     return frame
 
 
-def ensure_location_hierarchy(path: Path = LOCATION_HIERARCHY_PATH) -> None:
-    if path.exists():
+def ensure_location_hierarchy(
+    path: Path = LOCATION_HIERARCHY_PATH, *, mortality_path: Path | None = None
+) -> None:
+    """Download the public hierarchy unless a local national-location fallback exists."""
+
+    mortality_path = mortality_path or (
+        path.parent / "IHME-GBD_2023-death-rates-2020.csv"
+    )
+    if path.exists() or mortality_path.exists():
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(
@@ -278,19 +340,28 @@ def ensure_location_hierarchy(path: Path = LOCATION_HIERARCHY_PATH) -> None:
         shutil.copyfileobj(response, output)
 
 
-def national_locations(path: Path = LOCATION_HIERARCHY_PATH) -> pd.DataFrame:
+def national_locations(
+    path: Path = LOCATION_HIERARCHY_PATH, *, mortality_path: Path | None = None
+) -> pd.DataFrame:
+    """Return a unique GBD national-location to ISO-3 mapping."""
+
+    mortality_path = mortality_path or (
+        path.parent / "IHME-GBD_2023-death-rates-2020.csv"
+    )
     if not path.exists():
-        mortality = RAW_DIR / "IHME-GBD_2023-death-rates-2020.csv"
-        if mortality.exists():
-            frame = pd.read_csv(mortality, usecols=["location_id", "location_name"])
-            frame = frame.drop_duplicates()
-            frame["source_country"] = frame["location_name"].map(map_country)
-            frame = frame.dropna(subset=["source_country"])
-            if (
-                not frame["location_id"].duplicated().any()
-                and not frame["source_country"].duplicated().any()
-            ):
-                return frame[["location_id", "source_country"]]
+        if not mortality_path.exists():
+            raise FileNotFoundError(f"Missing GBD location hierarchy: {path}")
+        frame = pd.read_csv(
+            mortality_path, usecols=["location_id", "location_name"]
+        ).drop_duplicates()
+        frame["source_country"] = frame["location_name"].map(map_country)
+        frame = frame.dropna(subset=["source_country"])
+        if (
+            frame["location_id"].duplicated().any()
+            or frame["source_country"].duplicated().any()
+        ):
+            raise ValueError("GBD mortality locations must map uniquely to ISO-3")
+        return frame[["location_id", "source_country"]]
     hierarchy = pd.read_excel(path, sheet_name="GBD 2021 Locations Hierarchy")
     required = {"Location ID", "Location Name", "Level"}
     if not required <= set(hierarchy.columns):
@@ -311,6 +382,33 @@ def national_locations(path: Path = LOCATION_HIERARCHY_PATH) -> pd.DataFrame:
             "GBD hierarchy must map each national location and ISO-3 uniquely"
         )
     return national[["location_id", "source_country"]]
+
+
+def select_exposure_cells(
+    frame: pd.DataFrame,
+    *,
+    label: str,
+    locations: pd.DataFrame,
+    source_countries: set[str],
+) -> pd.DataFrame:
+    """Select one complete 2020 adult age-sex grid for the requested countries."""
+
+    selected = frame[
+        (frame["year_id"] == REFERENCE_YEAR)
+        & frame["age_group_id"].isin(ADULT_AGE_START)
+    ].merge(locations, on="location_id", how="inner", validate="many_to_one")
+    selected = selected[selected["source_country"].isin(source_countries)].copy()
+    key = ["source_country", "age_group_id", "sex_id"]
+    if selected.duplicated(key).any():
+        raise ValueError(f"Duplicate {label} age-sex cells after filtering")
+    expected = pd.MultiIndex.from_product(
+        [sorted(source_countries), sorted(ADULT_AGE_START), (1, 2)], names=key
+    )
+    actual = pd.MultiIndex.from_frame(selected[key])
+    missing = expected.difference(actual)
+    if len(missing):
+        raise ValueError(f"GBD {label} exposure missing {len(missing)} target cells")
+    return selected[key + ["mean", "lower", "upper"]]
 
 
 def wpp_age_sex_weights(

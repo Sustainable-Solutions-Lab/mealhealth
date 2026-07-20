@@ -998,7 +998,9 @@ def build_standard_life_table() -> pd.DataFrame:
 # --------------------------------------------------------------------------
 
 
-def build_health_data(*, output_dir: Path = OUT_DIR) -> dict[str, pd.DataFrame]:
+def build_and_write_health_data(
+    *, output_dir: Path = OUT_DIR
+) -> dict[str, pd.DataFrame]:
     """Build and write the health and demographic package data."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1056,7 +1058,7 @@ def build_health_data(*, output_dir: Path = OUT_DIR) -> dict[str, pd.DataFrame]:
 
 def main() -> None:
     ensure_raw_downloads()
-    build_health_data()
+    build_and_write_health_data()
 
 
 if __name__ == "__main__":

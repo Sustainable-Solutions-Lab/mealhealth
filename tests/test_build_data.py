@@ -29,6 +29,17 @@ def test_builders_share_the_canonical_source_registry():
     )
 
 
+def test_manual_inputs_come_from_the_shared_source_registries():
+    expected = {
+        source.path(build_data.RAW)
+        for source in (
+            *build_data.dietary_exposure_sources.DIRECT_SOURCES.values(),
+            *build_data.dietary_exposure_sources.MEDIATOR_SOURCES.values(),
+        )
+    }
+    assert expected <= set(build_data.manual_inputs())
+
+
 def test_missing_manual_inputs_are_reported(monkeypatch):
     missing = build_data.ROOT / "data" / "raw" / "example.csv"
     monkeypatch.setattr(build_data, "manual_inputs", lambda: (missing,))
