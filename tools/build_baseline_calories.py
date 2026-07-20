@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from pathlib import Path
+import urllib.request
 
 import numpy as np
 import pandas as pd
@@ -22,6 +24,61 @@ from tools.dietary_exposure_sources import (
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE = ROOT / "data" / "raw" / "GDD-IA-intake_kcals_2020.csv"
 OUT_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_calories.csv"
+
+# The GDD-IA calorie table is public (CC BY 4.0) and needs no account, so the
+# workflow fetches it rather than asking for a manual download. The pinned
+# version DOI is 10.5281/zenodo.20818140; the checksum is Zenodo's own, so a
+# republished dataset fails loudly here instead of silently shifting the
+# calorie baseline.
+GDD_IA_RECORD = "20818140"
+GDD_IA_FILENAME = "intake_kcals_2020.csv"
+GDD_IA_URL = (
+    f"https://zenodo.org/api/records/{GDD_IA_RECORD}/files/{GDD_IA_FILENAME}/content"
+)
+GDD_IA_MD5 = "6cad0a0ef06f3db5629af6619ddf9432"
+GDD_IA_SIZE_BYTES = 82_935_745
+
+
+def _download_verified(url: str, destination: Path, *, md5: str) -> None:
+    """Stream ``url`` to ``destination``, replacing it only once the hash matches."""
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_suffix(destination.suffix + ".part")
+    digest = hashlib.md5(usedforsecurity=False)
+    request = urllib.request.Request(  # noqa: S310 (pinned Zenodo record)
+        url, headers={"User-Agent": "mealhealth-data-build"}
+    )
+    try:
+        with (
+            urllib.request.urlopen(request, timeout=300) as response,  # noqa: S310
+            partial.open("wb") as handle,
+        ):
+            while chunk := response.read(1 << 20):
+                digest.update(chunk)
+                handle.write(chunk)
+        if digest.hexdigest() != md5:
+            raise RuntimeError(
+                f"Checksum mismatch for {url}: expected md5 {md5}, "
+                f"got {digest.hexdigest()}. The upstream dataset may have been "
+                "republished; check the Zenodo record before updating the pin."
+            )
+        partial.replace(destination)
+    finally:
+        partial.unlink(missing_ok=True)
+
+
+def ensure_source(source_path: Path = DEFAULT_SOURCE) -> Path:
+    """Download the GDD-IA calorie table from Zenodo when it is not staged."""
+
+    if source_path.exists():
+        return source_path
+    megabytes = GDD_IA_SIZE_BYTES / 1e6
+    print(
+        f"Downloading {GDD_IA_FILENAME} ({megabytes:.0f} MB) from the GDD-IA "
+        f"Zenodo record {GDD_IA_RECORD} ..."
+    )
+    _download_verified(GDD_IA_URL, source_path, md5=GDD_IA_MD5)
+    return source_path
 
 
 def _wpp_band_weights(countries: set[str], path: Path) -> pd.DataFrame:
@@ -124,8 +181,9 @@ def build_and_write_baseline_calories(
     manifest_path: Path = MANIFEST_PATH,
     output: Path = OUT_PATH,
 ) -> pd.DataFrame:
-    """Build and write the country calorie baseline."""
+    """Build and write the country calorie baseline, fetching the source if needed."""
 
+    ensure_source(source_path)
     frame = build_baseline_calories(
         source_path=source_path, manifest_path=manifest_path
     )

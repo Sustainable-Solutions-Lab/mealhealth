@@ -50,8 +50,9 @@ files are staged and published to the package only after every stage succeeds.
 | `baseline_calories.csv`   | GDD-IA 2020 all-food calorie target + WPP age weights | CC BY 4.0 |
 
 Raw inputs live under `data/raw/` (git-ignored). WHO mortality, UN data, public
-GBD curves, and the public GBD location hierarchy download automatically; the
-remaining GBD inputs need a free IHME account and are flagged below.
+GBD curves, the public GBD location hierarchy, and the GDD-IA calorie table
+download automatically; the remaining GBD inputs need a free IHME account and
+are flagged below.
 JSON returned by the IHME and WHO APIs is checked immediately against strict
 Pydantic schemas in `tools/source_schemas.py`; the subsequent dataframe checks
 continue to enforce model-specific units, coverage, ordering, and completeness.
@@ -254,19 +255,18 @@ g/day urinary sodium; the other values are documented future sensitivities.
 
 ## Direct baseline and calories
 
-### Obtaining the GDD-IA calorie table (manual)
+### The GDD-IA calorie table (automatic)
 
-Download `intake_kcals_2020.csv` (82.9 MB) from the GDD-IA Zenodo record
-[10.5281/zenodo.20818140](https://doi.org/10.5281/zenodo.20818140) and save it
-under `data/raw/` **renamed** to `GDD-IA-intake_kcals_2020.csv`:
+The calorie stage fetches `intake_kcals_2020.csv` (83 MB) from the GDD-IA Zenodo
+record [10.5281/zenodo.20818140](https://doi.org/10.5281/zenodo.20818140) when
+it is not already staged, and writes it to
+`data/raw/GDD-IA-intake_kcals_2020.csv`. The record is public and CC BY 4.0, so
+no account is involved. The download is verified against Zenodo's own MD5
+before it replaces anything, which means a republished dataset stops the build
+rather than quietly shifting the calorie baseline. Pinning the version DOI, not
+the concept DOI, keeps the build reproducible.
 
-```
-data/raw/GDD-IA-intake_kcals_2020.csv
-```
-
-No account is needed — the record is public and CC BY 4.0 — but the file is too
-large to fetch on every build, so the workflow expects it to be staged by hand
-like the IHME archives. The file is used unmodified; only the rename matters.
+Staging the file by hand still works, and skips the download.
 
 `baseline_exposure.csv` is the canonical direct baseline. The checked-in source
 manifest (`tools/reference/baseline_country_sources.csv`) has 175 target

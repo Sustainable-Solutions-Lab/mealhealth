@@ -113,7 +113,6 @@ def manual_inputs() -> tuple[Path, ...]:
     )
     return (
         *direct_inputs,
-        build_baseline_calories.DEFAULT_SOURCE,
         prepare_data.GBD_REFERENCE_LIFE_TABLE_CSV,
         *mediator_inputs,
     )
@@ -170,6 +169,7 @@ def main() -> None:
     check_manual_inputs()
     print("Ensuring automatically downloadable public inputs are available ...")
     prepare_data.ensure_raw_downloads()
+    build_baseline_calories.ensure_source()
     PACKAGED_DATA.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         prefix=".mealhealth-data-build-", dir=PACKAGED_DATA.parent
