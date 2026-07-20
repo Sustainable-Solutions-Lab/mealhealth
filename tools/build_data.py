@@ -38,29 +38,29 @@ class Stage:
     outputs: tuple[str, ...]
 
 
-def _build_baseline_exposure(output_dir: Path) -> object:
+def _build_and_write_baseline_exposure(output_dir: Path) -> object:
     return build_baseline_exposure.build_and_write_baseline_exposure(
         output=output_dir / "baseline_exposure.csv"
     )
 
 
-def _build_baseline_calories(output_dir: Path) -> object:
+def _build_and_write_baseline_calories(output_dir: Path) -> object:
     return build_baseline_calories.build_and_write_baseline_calories(
         output=output_dir / "baseline_calories.csv"
     )
 
 
-def _build_health_data(output_dir: Path) -> object:
-    return prepare_data.build_health_data(output_dir=output_dir)
+def _build_and_write_health_data(output_dir: Path) -> object:
+    return prepare_data.build_and_write_health_data(output_dir=output_dir)
 
 
-def _build_baseline_mediators(output_dir: Path) -> object:
+def _build_and_write_baseline_mediators(output_dir: Path) -> object:
     return build_baseline_mediators_from_gbd.build_and_write_baseline_mediators(
         output=output_dir / "baseline_mediators.csv"
     )
 
 
-def _build_sodium_relative_risks(output_dir: Path) -> object:
+def _build_and_write_sodium_relative_risks(output_dir: Path) -> object:
     return build_sodium_relative_risks.build_and_write_relative_risks(
         output=output_dir / "sodium_relative_risks.csv"
     )
@@ -69,17 +69,17 @@ def _build_sodium_relative_risks(output_dir: Path) -> object:
 STAGES = (
     Stage(
         "direct exposure baseline",
-        _build_baseline_exposure,
+        _build_and_write_baseline_exposure,
         ("baseline_exposure.csv",),
     ),
     Stage(
         "calorie baseline",
-        _build_baseline_calories,
+        _build_and_write_baseline_calories,
         ("baseline_calories.csv",),
     ),
     Stage(
         "health and demographic data",
-        _build_health_data,
+        _build_and_write_health_data,
         (
             "relative_risks.csv",
             "mortality.csv",
@@ -90,12 +90,12 @@ STAGES = (
     ),
     Stage(
         "sodium mediator baseline",
-        _build_baseline_mediators,
+        _build_and_write_baseline_mediators,
         ("baseline_mediators.csv",),
     ),
     Stage(
         "sodium and SBP relative risks",
-        _build_sodium_relative_risks,
+        _build_and_write_sodium_relative_risks,
         ("sodium_relative_risks.csv",),
     ),
 )
@@ -105,12 +105,11 @@ def manual_inputs() -> tuple[Path, ...]:
     """Return raw inputs that the workflow cannot obtain automatically."""
 
     direct_inputs = tuple(
-        RAW / source.relative_path
-        for source in dietary_exposure_sources.DIRECT_SOURCES.values()
+        source.path(RAW) for source in dietary_exposure_sources.DIRECT_SOURCES.values()
     )
-    mediator_inputs = (
-        build_baseline_mediators_from_gbd.SODIUM_SOURCE.path(RAW),
-        build_baseline_mediators_from_gbd.SBP_SOURCE.path(RAW),
+    mediator_inputs = tuple(
+        source.path(RAW)
+        for source in dietary_exposure_sources.MEDIATOR_SOURCES.values()
     )
     return (
         *direct_inputs,

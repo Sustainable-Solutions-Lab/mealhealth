@@ -6,23 +6,14 @@
 
 from dataclasses import replace
 import hashlib
-import importlib.util
 from pathlib import Path
-import sys
 
 import pandas as pd
 import pytest
 
 from mealhealth import data
-
-SCRIPT = Path(__file__).parents[1] / "tools" / "build_baseline_mediators_from_gbd.py"
-SPEC = importlib.util.spec_from_file_location(
-    "build_baseline_mediators_from_gbd", SCRIPT
-)
-assert SPEC is not None and SPEC.loader is not None
-builder = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = builder
-SPEC.loader.exec_module(builder)
+from tools import build_baseline_mediators_from_gbd as builder
+from tools import dietary_exposure_sources as exposure_sources
 
 
 def _hash(path: Path) -> str:
@@ -36,7 +27,7 @@ def _write_exposure(path: Path, *, scale: float) -> None:
             (102, "United States of America", 1.0),
             (80, "France", 2.0),
         ):
-            for age_id, age_name in builder.ADULT_AGE_NAME.items():
+            for age_id, age_name in exposure_sources.ADULT_AGE_NAME.items():
                 for sex_id, sex in ((1, "Male"), (2, "Female")):
                     mean = scale * (offset + age_id / 100 + sex_id / 1000)
                     rows.append(
@@ -56,7 +47,9 @@ def _write_exposure(path: Path, *, scale: float) -> None:
                         }
                     )
     path.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows, columns=builder.EXPOSURE_COLUMNS).to_csv(path, index=False)
+    pd.DataFrame(rows, columns=exposure_sources.EXPOSURE_COLUMNS).to_csv(
+        path, index=False
+    )
 
 
 def _synthetic_inputs(tmp_path):
@@ -65,10 +58,10 @@ def _synthetic_inputs(tmp_path):
     sbp_path = raw / "other" / "sbp.csv"
     _write_exposure(sodium_path, scale=2.0)
     _write_exposure(sbp_path, scale=100.0)
-    sodium_source = builder.ExposureSource(
+    sodium_source = exposure_sources.ExposureSource(
         "sodium_urinary", "diet/sodium.csv", _hash(sodium_path), "g/day"
     )
-    sbp_source = builder.ExposureSource(
+    sbp_source = exposure_sources.ExposureSource(
         "sbp", "other/sbp.csv", _hash(sbp_path), "mm Hg"
     )
     hierarchy_path = raw / "hierarchy.xlsx"
@@ -80,7 +73,13 @@ def _synthetic_inputs(tmp_path):
         }
     ).to_excel(hierarchy_path, sheet_name="GBD 2021 Locations Hierarchy", index=False)
     baseline_path = tmp_path / "baseline.csv"
-    pd.DataFrame({"country": ["USA", "FRA", "GUF"]}).to_csv(baseline_path, index=False)
+    pd.DataFrame(
+        {
+            "country": ["USA", "FRA", "GUF"],
+            "gbd_exposure_source_country": ["USA", "FRA", "USA"],
+            "calorie_source_country": ["USA", "FRA", "FRA"],
+        }
+    ).to_csv(baseline_path, index=False)
     return raw, baseline_path, hierarchy_path, sodium_source, sbp_source
 
 
@@ -92,6 +91,7 @@ def test_builder_preserves_strata_bounds_proxy_and_determinism(tmp_path):
         location_hierarchy_path=hierarchy,
         sodium_source=sodium_source,
         sbp_source=sbp_source,
+        expected_country_count=None,
     )
     assert len(result) == 3 * 15 * 2
     usa = result.query("country == 'USA' and age == '25-29' and sex == 'male'").iloc[0]
@@ -100,21 +100,21 @@ def test_builder_preserves_strata_bounds_proxy_and_determinism(tmp_path):
     assert usa["sodium_urinary_g_per_day_lower"] == pytest.approx(2.202 * 0.9)
     assert usa["sbp_mmhg_upper"] == pytest.approx(110.1 * 1.1)
 
-    french = result.query("country in ['FRA', 'GUF']").sort_values(
+    proxied = result.query("country in ['USA', 'GUF']").sort_values(
         ["age", "sex", "country"]
     )
     direct = (
-        french.query("country == 'FRA'")
+        proxied.query("country == 'USA'")
         .drop(columns=["country", "source_country"])
         .reset_index(drop=True)
     )
     proxy = (
-        french.query("country == 'GUF'")
+        proxied.query("country == 'GUF'")
         .drop(columns=["country", "source_country"])
         .reset_index(drop=True)
     )
     pd.testing.assert_frame_equal(direct, proxy)
-    assert set(result.query("country == 'GUF'")["source_country"]) == {"FRA"}
+    assert set(result.query("country == 'GUF'")["source_country"]) == {"USA"}
 
     first, second = tmp_path / "first.csv", tmp_path / "second.csv"
     builder.write_baseline_mediators(result, first)
@@ -125,7 +125,7 @@ def test_builder_preserves_strata_bounds_proxy_and_determinism(tmp_path):
 def test_builder_rejects_checksum_and_incomplete_join(tmp_path):
     raw, baseline, hierarchy, sodium_source, sbp_source = _synthetic_inputs(tmp_path)
     with pytest.raises(ValueError, match="SHA-256 mismatch"):
-        builder._read_and_validate_exposure(
+        exposure_sources.read_exposure(
             replace(sbp_source, sha256="0" * 64), raw_dir=raw
         )
 
@@ -139,13 +139,14 @@ def test_builder_rejects_checksum_and_incomplete_join(tmp_path):
     ]
     sbp.to_csv(sbp_source.path(raw), index=False)
     changed = replace(sbp_source, sha256=_hash(sbp_source.path(raw)))
-    with pytest.raises(ValueError, match="Expected .* source mediator rows"):
+    with pytest.raises(ValueError, match="missing 1 target cells"):
         builder.build_baseline_mediators(
             raw_dir=raw,
             manifest_path=baseline,
             location_hierarchy_path=hierarchy,
             sodium_source=sodium_source,
             sbp_source=changed,
+            expected_country_count=None,
         )
 
 
