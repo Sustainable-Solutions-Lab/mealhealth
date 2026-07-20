@@ -56,7 +56,8 @@ and [Quickstart](guide/quickstart.md), then
 [Food groups](guide/food_groups.md) — the mass basis each group must be supplied
 in is the one thing that will silently corrupt your numbers if you get it wrong.
 [Interpreting results](guide/interpreting.md) explains what the figures mean and
-which comparisons between them hold up.
+which comparisons between them hold up, and the
+[examples](examples/index.md) work through real meals with plots.
 
 If you want to know what the model actually does, or whether you can trust a
 number for your purpose, start with [Methodology](model/methodology.md) and read
@@ -89,6 +90,14 @@ guide/quickstart
 guide/food_groups
 guide/interpreting
 guide/troubleshooting
+```
+
+```{toctree}
+:hidden:
+:caption: Examples
+:maxdepth: 2
+
+examples/index
 ```
 
 ```{toctree}

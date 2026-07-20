@@ -12,3 +12,17 @@ article table {
     overflow-x: auto;
     max-width: 100%;
 }
+
+/* Notebook figures are rendered on a light surface. Give them a card in dark
+   mode so they read as deliberate figures rather than as a clash. */
+.cell_output img {
+    background: #fcfcfb;
+    border-radius: 6px;
+    max-width: 100%;
+    height: auto;
+}
+
+body[data-theme="dark"] .cell_output img,
+body[data-theme="dark"] .cell_output .output img {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}

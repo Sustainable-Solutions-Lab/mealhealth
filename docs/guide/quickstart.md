@@ -133,7 +133,8 @@ mh.nutrient_factors()["sodium"].api_unit       # 'mg'
 
 ## Next
 
-[Interpreting results](interpreting.md) covers what these numbers mean and how
-far to trust them, and [Troubleshooting](troubleshooting.md) covers the errors
-and warnings you are most likely to hit. [Methodology](../model/methodology.md)
-derives the formulas behind them.
+The [examples](../examples/index.md) take the same API into comparisons across
+meals, countries, intakes and ages, with plots.
+[Interpreting results](interpreting.md) covers what the numbers mean and how far
+to trust them, and [Troubleshooting](troubleshooting.md) covers the errors and
+warnings you are most likely to hit.

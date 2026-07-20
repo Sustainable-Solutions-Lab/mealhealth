@@ -84,6 +84,16 @@ warning is a build failure** — a broken cross-reference or an orphaned page wi
 fail the pipeline even though it renders locally. Build the site before pushing
 documentation changes.
 
+The example notebooks are MyST Markdown under `docs/examples/`, with no stored
+outputs, so they execute on every build. That makes the docs build double as an
+integration test of the public API: if `assess_meal` breaks, or a figure's code
+stops running, the build fails. It also means the build is slow the first time
+and fast afterwards, because `nb_execution_mode = "cache"` keeps results in
+`docs/.jupyter_cache/`.
+
+Shared plot styling lives in `docs/examples/mhstyle.py` rather than in each
+notebook, so the gallery reads as one system.
+
 To preview with live reload, add `sphinx-autobuild` to the `docs` group and run
 `uv run --group docs sphinx-autobuild docs docs/_build/html`.
 

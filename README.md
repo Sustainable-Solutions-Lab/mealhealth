@@ -81,7 +81,7 @@ dependencies = [
 `pixi add --pypi "mealhealth @ git+..."` and plain
 `pip install "git+https://github.com/..."` work too. Runtime dependencies are
 just `numpy` and `pandas`; the data is bundled with the package. See the
-[installation guide](https://sustainable-solutions-lab.github.io/mealhealth/installation.html)
+[installation guide](https://sustainable-solutions-lab.github.io/mealhealth/guide/installation.html)
 for pinning to a tag, SSH URLs, and a local development checkout.
 
 ## Documentation
@@ -94,6 +94,8 @@ developer notes:
 * [`docs/guide/`](docs/guide/) — installation, quickstart, and the food-group
   definitions with the **mass basis** you must supply each group in (this
   matters for correctness).
+* [`docs/examples/`](docs/examples/) — worked notebooks, executed at build time,
+  comparing meals, countries, intakes and ages.
 * [`docs/model/`](docs/model/) — the formulas and age modes
   ([methodology](docs/model/methodology.md)), data provenance
   ([data sources](docs/model/data_sources.md)), what the model cannot do
