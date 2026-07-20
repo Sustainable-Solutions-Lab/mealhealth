@@ -31,12 +31,8 @@ structure and TMRELs come from curated tables under
 ``tools/reference/`` (see ``tools/generate_rr_age_attenuation.py``).
 
 The direct exposure and calorie baselines are separate datasets and are **not**
-built here — see ``tools/build_baseline_exposure.py``,
-``tools/build_baseline_calories.py`` and ``docs/data_sources.md``.
-
-Run from the repository root with the dev environment::
-
-    python tools/prepare_data.py
+built here. This module is an internal stage invoked by
+``tools/build_data.py``; see ``docs/data_sources.md`` for the workflow.
 """
 
 from __future__ import annotations
@@ -210,7 +206,7 @@ AGE_BUCKETS = [
 ]
 
 
-def _ensure_raw_downloads() -> None:
+def ensure_raw_downloads() -> None:
     """Download public WHO GHE and UN WPP files when missing.
 
     The GBD theoretical-minimum-risk life table still requires a free IHME
@@ -1002,9 +998,10 @@ def build_standard_life_table() -> pd.DataFrame:
 # --------------------------------------------------------------------------
 
 
-def main() -> None:
-    _ensure_raw_downloads()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+def build_health_data(*, output_dir: Path = OUT_DIR) -> dict[str, pd.DataFrame]:
+    """Build and write the health and demographic package data."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     print("Building relative_risks.csv ...")
     rr = build_relative_risks()
@@ -1017,7 +1014,7 @@ def main() -> None:
 
     # The direct exposure baseline defines the country universe; every target
     # country must have complete burden inputs.
-    baseline_exposure = pd.read_csv(OUT_DIR / "baseline_exposure.csv")
+    baseline_exposure = pd.read_csv(output_dir / "baseline_exposure.csv")
     diet_countries = set(baseline_exposure["country"])
 
     print("Building local_life_table.csv ...")
@@ -1041,21 +1038,25 @@ def main() -> None:
     local_life_table = local_life_table[local_life_table["country"].isin(keep)]
     print(f"Countries with complete data: {len(keep)}")
 
-    rr.to_csv(OUT_DIR / "relative_risks.csv", index=False)
-    mort.to_csv(OUT_DIR / "mortality.csv", index=False)
-    pop.to_csv(OUT_DIR / "population.csv", index=False)
-    local_life_table.to_csv(OUT_DIR / "local_life_table.csv", index=False)
-    standard_life_table.to_csv(OUT_DIR / "standard_life_table.csv", index=False)
+    outputs = {
+        "relative_risks": rr,
+        "mortality": mort,
+        "population": pop,
+        "local_life_table": local_life_table,
+        "standard_life_table": standard_life_table,
+    }
+    for name, frame in outputs.items():
+        frame.to_csv(output_dir / f"{name}.csv", index=False)
 
     print("\nWrote:")
-    for name, df in [
-        ("relative_risks", rr),
-        ("mortality", mort),
-        ("population", pop),
-        ("local_life_table", local_life_table),
-        ("standard_life_table", standard_life_table),
-    ]:
-        print(f"  {name}.csv: {len(df)} rows")
+    for name, frame in outputs.items():
+        print(f"  {name}.csv: {len(frame)} rows")
+    return outputs
+
+
+def main() -> None:
+    ensure_raw_downloads()
+    build_health_data()
 
 
 if __name__ == "__main__":

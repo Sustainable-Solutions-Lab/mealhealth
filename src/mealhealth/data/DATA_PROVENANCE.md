@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Bundled data — schemas and provenance
 
 These CSVs are processed/adapted derivatives. The health/demographic files are
-produced by `tools/prepare_data.py` from public raw datasets (WHO GHE, IHME GBD,
+produced by `tools/build_data.py` from public raw datasets (WHO GHE, IHME GBD,
 UN WPP);
 the direct-exposure and mediator baselines are built directly from GBD risk
 exposure (and WPP weights); calories are built from the public GDD-IA table (see
@@ -55,7 +55,7 @@ age group, and sex in 2020.
   modeled stratum mean. They are not within-stratum quantiles and do not supply
   a usual-SBP standard deviation. The runtime uses the means only; a
   future distributional mediator would require additional input.
-- Built by `tools/build_baseline_mediators_from_gbd.py` from the pinned high-
+- Built by the `tools/build_data.py` workflow (sodium mediator stage) from the pinned high-
   sodium (`0ea88321…`) and high-SBP (`dd317224…`) files in GBD 2023 Risk
   Exposure Estimates 1990–2023.
 
@@ -64,7 +64,8 @@ Current all-age GBD 2023 Burden-of-Proof curves for the sodium mediator.
 `path,curve_cause,exposure,rr_mean,rr_low,rr_high,risk_lower,risk_upper,star_rating,rei_id,cause_id`
 - `path=sodium`: urinary sodium → stomach cancer.
 - `path=sbp`: systolic blood pressure → CHD, combined stroke, and CKD.
-- Built from the public BoP API by `tools/build_sodium_relative_risks.py`.
+- Built from the public BoP API by the `tools/build_data.py` workflow
+  (sodium/SBP relative-risk stage).
   The runtime uses `rr_mean`; bounds and metadata are retained for provenance.
   SHA-256: `3261d4d230e1f7370c30c9e6d2922a0bc5c5851c8b57589e23df485caa2c0850`.
 

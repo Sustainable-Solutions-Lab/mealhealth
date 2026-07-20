@@ -13,36 +13,22 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-try:
-    from dietary_exposure_sources import (
-        ADULT_AGE_START,
-        BASIS_FACTORS,
-        DIRECT_SOURCES,
-        MANIFEST_PATH,
-        REFERENCE_YEAR,
-        WPP_POPULATION_PATH,
-        ensure_location_hierarchy,
-        national_locations,
-        read_exposure,
-        read_manifest,
-        wpp_age_sex_weights,
-    )
-except ModuleNotFoundError:  # importlib-based tests load this file as a module
-    from tools.dietary_exposure_sources import (
-        ADULT_AGE_START,
-        BASIS_FACTORS,
-        DIRECT_SOURCES,
-        MANIFEST_PATH,
-        REFERENCE_YEAR,
-        WPP_POPULATION_PATH,
-        ensure_location_hierarchy,
-        national_locations,
-        read_exposure,
-        read_manifest,
-        wpp_age_sex_weights,
-    )
 import numpy as np
 import pandas as pd
+
+from tools.dietary_exposure_sources import (
+    ADULT_AGE_START,
+    BASIS_FACTORS,
+    DIRECT_SOURCES,
+    MANIFEST_PATH,
+    REFERENCE_YEAR,
+    WPP_POPULATION_PATH,
+    ensure_location_hierarchy,
+    national_locations,
+    read_exposure,
+    read_manifest,
+    wpp_age_sex_weights,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_PATH = ROOT / "src" / "mealhealth" / "data" / "baseline_exposure.csv"
@@ -134,17 +120,33 @@ def write_baseline_exposure(frame: pd.DataFrame, output: Path = OUT_PATH) -> Non
     frame.to_csv(output, index=False, float_format="%.10g", lineterminator="\n")
 
 
+def build_and_write_baseline_exposure(
+    *,
+    manifest_path: Path = MANIFEST_PATH,
+    output: Path = OUT_PATH,
+    verify_checksum: bool = True,
+) -> pd.DataFrame:
+    """Build and write the direct exposure baseline."""
+
+    frame = build_baseline_exposure(
+        manifest_path=manifest_path, verify_checksum=verify_checksum
+    )
+    write_baseline_exposure(frame, output)
+    print(f"Wrote {len(frame)} rows to {output}")
+    return frame
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH)
     parser.add_argument("--output", type=Path, default=OUT_PATH)
     parser.add_argument("--no-checksum", action="store_true")
     args = parser.parse_args()
-    frame = build_baseline_exposure(
-        manifest_path=args.manifest, verify_checksum=not args.no_checksum
+    build_and_write_baseline_exposure(
+        manifest_path=args.manifest,
+        output=args.output,
+        verify_checksum=not args.no_checksum,
     )
-    write_baseline_exposure(frame, args.output)
-    print(f"Wrote {len(frame)} rows to {args.output}")
 
 
 if __name__ == "__main__":

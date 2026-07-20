@@ -393,6 +393,20 @@ def write_baseline_mediators(frame: pd.DataFrame, output: Path = OUT_PATH) -> No
     frame.to_csv(output, index=False, float_format="%.10g", lineterminator="\n")
 
 
+def build_and_write_baseline_mediators(
+    *,
+    raw_dir: Path = RAW_DIR,
+    output: Path = OUT_PATH,
+    verify_checksum: bool = True,
+) -> pd.DataFrame:
+    """Build and write the sodium/SBP mediator baseline."""
+
+    frame = build_baseline_mediators(raw_dir=raw_dir, verify_checksum=verify_checksum)
+    write_baseline_mediators(frame, output)
+    print(f"Wrote {len(frame)} rows to {output}")
+    return frame
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw-dir", type=Path, default=RAW_DIR)
@@ -403,11 +417,11 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    frame = build_baseline_mediators(
-        raw_dir=args.raw_dir, verify_checksum=not args.no_checksum
+    build_and_write_baseline_mediators(
+        raw_dir=args.raw_dir,
+        output=args.output,
+        verify_checksum=not args.no_checksum,
     )
-    write_baseline_mediators(frame, args.output)
-    print(f"Wrote {len(frame)} rows to {args.output}")
 
 
 if __name__ == "__main__":

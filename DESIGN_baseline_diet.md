@@ -80,9 +80,7 @@ Stage the authenticated GBD exposure files under `data/raw/`, place the public
 GDD-IA calorie CSV under `data/raw/`, and run:
 
 ```bash
-uv run python tools/build_baseline_exposure.py
-uv run python tools/build_baseline_calories.py
-uv run python tools/build_baseline_mediators_from_gbd.py
+uv run python -m tools.build_data
 uv run pytest -q
 uv run ruff check .
 uv run --group docs sphinx-build -b html docs /tmp/mealhealth-docs

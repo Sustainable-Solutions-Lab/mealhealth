@@ -6,6 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # mealhealth — a healthiness metric for a meal
 
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://sustainable-solutions-lab.github.io/mealhealth/)
+
 `mealhealth` estimates how many **years of life you would lose or gain** if an
 average person in a chosen country ate a given meal *every day for the rest of
 their life*, relative to that country's current (baseline) diet. The metric is
@@ -97,6 +99,13 @@ in [`docs/`](docs/):
 * [`docs/usage.md`](docs/usage.md) — API reference and worked examples.
 
 Build the site locally with `uv run --group docs sphinx-build -b html docs docs/_build/html`.
+
+To regenerate all bundled data after placing the manually downloaded raw files
+under `data/raw/`, run:
+
+```bash
+uv run python -m tools.build_data
+```
 
 ## Licensing (important)
 

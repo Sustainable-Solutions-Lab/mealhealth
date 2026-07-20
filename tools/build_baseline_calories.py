@@ -9,22 +9,15 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-try:
-    from dietary_exposure_sources import (
-        MANIFEST_PATH,
-        REFERENCE_YEAR,
-        WPP_POPULATION_PATH,
-        read_manifest,
-    )
-except ModuleNotFoundError:  # importlib-based tests load this file as a module
-    from tools.dietary_exposure_sources import (
-        MANIFEST_PATH,
-        REFERENCE_YEAR,
-        WPP_POPULATION_PATH,
-        read_manifest,
-    )
 import numpy as np
 import pandas as pd
+
+from tools.dietary_exposure_sources import (
+    MANIFEST_PATH,
+    REFERENCE_YEAR,
+    WPP_POPULATION_PATH,
+    read_manifest,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE = ROOT / "data" / "raw" / "GDD-IA-intake_kcals_2020.csv"
@@ -130,17 +123,33 @@ def write_baseline_calories(frame: pd.DataFrame, output: Path = OUT_PATH) -> Non
     frame.to_csv(output, index=False, float_format="%.10g", lineterminator="\n")
 
 
+def build_and_write_baseline_calories(
+    *,
+    source_path: Path = DEFAULT_SOURCE,
+    manifest_path: Path = MANIFEST_PATH,
+    output: Path = OUT_PATH,
+) -> pd.DataFrame:
+    """Build and write the country calorie baseline."""
+
+    frame = build_baseline_calories(
+        source_path=source_path, manifest_path=manifest_path
+    )
+    write_baseline_calories(frame, output)
+    print(f"Wrote {len(frame)} rows to {output}")
+    return frame
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH)
     parser.add_argument("--output", type=Path, default=OUT_PATH)
     args = parser.parse_args()
-    frame = build_baseline_calories(
-        source_path=args.source, manifest_path=args.manifest
+    build_and_write_baseline_calories(
+        source_path=args.source,
+        manifest_path=args.manifest,
+        output=args.output,
     )
-    write_baseline_calories(frame, args.output)
-    print(f"Wrote {len(frame)} rows to {args.output}")
 
 
 if __name__ == "__main__":
