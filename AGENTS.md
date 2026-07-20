@@ -27,6 +27,7 @@ tools/prepare_data.py              # internal health/demographic build stage
 tools/build_baseline_exposure.py  # internal GBD/WPP direct-baseline stage
 tools/build_baseline_calories.py  # internal GDD-IA/WPP calorie-baseline stage
 tools/build_baseline_mediators_from_gbd.py # internal sodium/SBP baseline stage
+tools/source_schemas.py           # strict external JSON response schemas
 tools/generate_rr_age_attenuation.py # one-off: curated RR age-attenuation table from GBD 2019
 tools/reference/*.csv              # curated regeneration inputs (red-meat RR, TMREL, age attenuation)
 tests/                  # pytest suite

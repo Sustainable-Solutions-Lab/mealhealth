@@ -52,6 +52,9 @@ files are staged and published to the package only after every stage succeeds.
 Raw inputs live under `data/raw/` (git-ignored). WHO mortality, UN data, public
 GBD curves, and the public GBD location hierarchy download automatically; the
 remaining GBD inputs need a free IHME account and are flagged below.
+JSON returned by the IHME and WHO APIs is checked immediately against strict
+Pydantic schemas in `tools/source_schemas.py`; the subsequent dataframe checks
+continue to enforce model-specific units, coverage, ordering, and completeness.
 
 ## Health and demographic data
 

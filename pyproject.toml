@@ -31,11 +31,13 @@ Documentation = "https://sustainable-solutions-lab.github.io/mealhealth/"
 dev = [
     "mypy>=1.11",
     "pandas-stubs>=2.2",
+    "pydantic>=2.12,<3",        # strict validation of external builder responses
     "pytest>=7",
     "ruff>=0.5",
     "reuse>=3",
-    "openpyxl>=3",   # needed by the tools/build_data.py workflow
-    "pycountry>=22",  # needed by the tools/build_data.py workflow
+    "openpyxl>=3",              # needed by the tools/build_data.py workflow
+    "pycountry>=22",            # needed by the tools/build_data.py workflow
+    "typing-extensions>=4.12",  # TypedDict support for Pydantic on Python 3.10
 ]
 docs = [
     "sphinx>=8",
