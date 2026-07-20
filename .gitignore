@@ -21,6 +21,3 @@ docs/.jupyter_cache/
 # Raw source datasets for data prep (developer-downloaded; not redistributable).
 # See docs/development/data_build.md for how to obtain them.
 data/raw/
-
-# Project spec — kept locally, not tracked
-spec.org
