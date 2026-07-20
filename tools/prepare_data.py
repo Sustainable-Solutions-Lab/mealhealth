@@ -41,6 +41,7 @@ import json
 from pathlib import Path
 import re
 import time
+from typing import Any, cast
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -242,7 +243,7 @@ _RR_CURVE_COLS = [
 ]
 
 
-def _bop_get(path: str, **params) -> object:
+def _bop_get(path: str, **params: str | int) -> Any:
     """GET one Burden-of-Proof JSON endpoint with a browser User-Agent."""
     qs = urllib.parse.urlencode(params)
     url = f"{BOP_API_BASE}/{path}" + (f"?{qs}" if qs else "")
@@ -270,7 +271,7 @@ def _fetch_bop_curves() -> pd.DataFrame:
     literature override). The result is cached to ``BOP_CURVES_CSV``.
     """
     manifest = _bop_get("metadata/risk_cause")  # {rei_id: [cause_id, ...]}
-    rows: list[dict] = []
+    rows: list[dict[str, object]] = []
     for risk, causes in RISK_CAUSE_MAP.items():
         rei = GBD_REI_ID[risk]
         available = set(manifest.get(str(rei), []))
@@ -366,7 +367,7 @@ def _override_all_ages(risk: str, causes: list[str], grid: list[float]) -> pd.Da
     multipliers come from the literature meta-analyses in the curated CSV.
     """
     alt = pd.read_csv(ALTERNATIVE_RR[risk])
-    rows: list[dict] = []
+    rows: list[dict[str, object]] = []
     found: set[str] = set()
     for _, r in alt.iterrows():
         cause = str(r["outcome"])
@@ -523,6 +524,8 @@ def build_relative_risks() -> pd.DataFrame:
     risk_type: dict[str, str] = {}
     for risk in RISK_CAUSE_MAP:
         row = tmrel_df.loc[risk]
+        if not isinstance(row, pd.Series):
+            raise ValueError(f"Duplicate TMREL rows for risk {risk!r}")
         f = RR_BASIS_FACTOR.get(risk, 1.0)
         tmrel_model[risk] = (
             0.5 * (float(row["tmrel_low"]) + float(row["tmrel_high"])) * f
@@ -604,7 +607,7 @@ MORTALITY_COUNTRY_PROXIES = {
 }
 
 
-def _who_ghe_get(params: dict[str, str | int]) -> dict:
+def _who_ghe_get(params: dict[str, str | int]) -> dict[str, Any]:
     query = urllib.parse.urlencode(params)
     request = urllib.request.Request(  # noqa: S310 (trusted WHO host)
         f"{WHO_GHE_API_URL}?{query}",
@@ -615,7 +618,7 @@ def _who_ghe_get(params: dict[str, str | int]) -> dict:
             with urllib.request.urlopen(  # noqa: S310
                 request, timeout=120
             ) as response:
-                return json.load(response)
+                return cast(dict[str, Any], json.load(response))
         except urllib.error.HTTPError as exc:
             if exc.code not in {429, 500, 502, 503, 504} or attempt == 4:
                 raise
@@ -629,10 +632,10 @@ def _who_ghe_get(params: dict[str, str | int]) -> dict:
 def retrieve_who_ghe_mortality() -> pd.DataFrame:
     """Retrieve complete 2020 age/sex mortality rows for model causes."""
 
-    rows: list[dict] = []
+    rows: list[dict[str, object]] = []
     for cause_id in WHO_GHE_CAUSE_MAP:
         for source_sex in ("MALE", "FEMALE"):
-            params = {
+            params: dict[str, str | int] = {
                 "$filter": (
                     f"DIM_YEAR_CODE eq {REFERENCE_YEAR} and "
                     f"DIM_SEX_CODE eq '{source_sex}' and "
@@ -651,7 +654,9 @@ def retrieve_who_ghe_mortality() -> pd.DataFrame:
                 raise ValueError(
                     "WHO GHE query may be truncated; reduce the query dimensions"
                 )
-            rows.extend(page)
+            if not all(isinstance(item, dict) for item in page):
+                raise ValueError("WHO GHE returned a non-object row")
+            rows.extend(cast(list[dict[str, object]], page))
     return pd.DataFrame(rows, columns=WHO_GHE_SELECT_COLUMNS)
 
 
@@ -719,7 +724,7 @@ def build_mortality(
 
     # The two chronic-kidney rows are additive components of one model cause.
     out = frame.groupby(["country", "sex", "cause", "age"], as_index=False)[
-        "death_rate_per_1000"
+        ["death_rate_per_1000"]
     ].sum()
     out["source_country"] = out["country"]
 
@@ -755,7 +760,8 @@ def build_mortality(
             "death_rate_per_1000",
         ]
     ]
-    return out.sort_values(["country", "sex", "cause", "age"]).reset_index(drop=True)
+    out = out.sort_values(["country", "sex", "cause", "age"]).reset_index(drop=True)
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -779,10 +785,10 @@ def build_population() -> pd.DataFrame:
     for column in ("PopMale", "PopFemale"):
         df[column] = pd.to_numeric(df[column], errors="coerce")
     df = df.dropna(subset=["PopMale", "PopFemale"])
-    df["AgeGrpStart"] = pd.to_numeric(df.get("AgeGrpStart"), errors="coerce")
-    df["AgeGrpSpan"] = pd.to_numeric(df.get("AgeGrpSpan"), errors="coerce")
+    df["AgeGrpStart"] = pd.to_numeric(df["AgeGrpStart"], errors="coerce")
+    df["AgeGrpSpan"] = pd.to_numeric(df["AgeGrpSpan"], errors="coerce")
 
-    records = []
+    records: list[dict[str, object]] = []
     for iso3, grp in df.groupby("ISO3_code"):
         for sex, population_column in (("male", "PopMale"), ("female", "PopFemale")):
             buckets: dict[str, float] = {}
@@ -906,10 +912,13 @@ def build_local_life_table(countries: set[str]) -> pd.DataFrame:
     raw["bucket"] = raw["AgeGrp"].map(_normalize_wpp_age)
     raw = raw.dropna(subset=["bucket"])
 
-    def _table_for(df: pd.DataFrame, country: str, sex: str) -> list[dict] | None:
-        seen, recs = set(), []
+    def _table_for(
+        df: pd.DataFrame, country: str, sex: str
+    ) -> list[dict[str, object]] | None:
+        seen: set[str] = set()
+        recs: list[dict[str, object]] = []
         for _, r in df.iterrows():
-            b = r["bucket"]
+            b = str(r["bucket"])
             if b in seen:
                 continue
             try:
@@ -930,7 +939,7 @@ def build_local_life_table(countries: set[str]) -> pd.DataFrame:
     if any(records is None for records in world_recs.values()):
         raise RuntimeError("Could not build sex-specific World life table fallback")
 
-    out_rows: list[dict] = []
+    out_rows: list[dict[str, object]] = []
     by_iso_sex = {
         (str(country), str(sex)): frame
         for (country, sex), frame in raw.groupby(["ISO3_code", "sex"])

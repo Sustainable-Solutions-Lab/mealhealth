@@ -24,9 +24,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 
 from . import data
@@ -53,9 +54,12 @@ class RelativeRiskCurves:
     def __init__(self, rr_df: pd.DataFrame | None = None):
         if rr_df is None:
             rr_df = data.relative_risks()
-        self._curve: dict[tuple[str, str, str], tuple[np.ndarray, np.ndarray]] = {}
+        self._curve: dict[
+            tuple[str, str, str], tuple[NDArray[np.float64], NDArray[np.float64]]
+        ] = {}
         self.pairs: set[tuple[str, str]] = set()
-        for (risk, cause, age), grp in rr_df.groupby(["risk_factor", "cause", "age"]):
+        for key, grp in rr_df.groupby(["risk_factor", "cause", "age"]):
+            risk, cause, age = cast(tuple[str, str, str], key)
             grp = grp.sort_values("exposure_g_per_day")
             x = grp["exposure_g_per_day"].to_numpy(dtype=float)
             log_rr = np.log(grp["rr_mean"].to_numpy(dtype=float))
@@ -81,6 +85,7 @@ class RelativeRiskCurves:
 
 
 LifeTableKind = Literal["local", "standard"]
+LIFE_TABLES: tuple[LifeTableKind, LifeTableKind] = ("local", "standard")
 SEXES = ("male", "female")
 
 
@@ -99,9 +104,14 @@ class CountryBurden:
 
         exposure = data.baseline_exposure()
         country_exposure = exposure[exposure["country"] == country]
-        self.baseline = dict(
-            country_exposure[["risk_factor", "exposure_g_per_day"]].itertuples(
-                index=False, name=None
+        self.baseline: dict[str, float] = dict(
+            zip(
+                country_exposure["risk_factor"].astype(str),
+                map(
+                    float,
+                    country_exposure["exposure_g_per_day"].to_numpy(dtype=float),
+                ),
+                strict=True,
             )
         )
         missing_exposure = (set(RISK_FACTORS) | set(DIRECT_NUTRIENT_FACTORS)) - set(
@@ -119,28 +129,61 @@ class CountryBurden:
 
         mort = data.mortality()
         mort = mort[mort["country"] == country]
-        self.death_rate: dict[tuple[str, str, str], float] = {
-            (r.sex, r.cause, r.age): r.death_rate_per_1000 / 1000.0
-            for r in mort.itertuples(index=False)
-        }
+        death_keys = zip(
+            mort["sex"].astype(str),
+            mort["cause"].astype(str),
+            mort["age"].astype(str),
+            strict=True,
+        )
+        death_values = map(
+            float, mort["death_rate_per_1000"].to_numpy(dtype=float) / 1000.0
+        )
+        self.death_rate: dict[tuple[str, str, str], float] = dict(
+            zip(death_keys, death_values, strict=True)
+        )
         pop = data.population()
         pop = pop[pop["country"] == country]
-        self.population: dict[tuple[str, str], float] = {
-            (row.sex, row.age): row.population
-            for row in pop.loc[pop["age"] != "all-a"].itertuples(index=False)
-        }
+        adult_pop = pop.loc[pop["age"] != "all-a"]
+        population_keys = zip(
+            adult_pop["sex"].astype(str),
+            adult_pop["age"].astype(str),
+            strict=True,
+        )
+        population_values = map(float, adult_pop["population"].to_numpy(dtype=float))
+        self.population: dict[tuple[str, str], float] = dict(
+            zip(population_keys, population_values, strict=True)
+        )
 
         local_lt = data.local_life_table()
         local_lt = local_lt[local_lt["country"] == country]
-        self.local_lx: dict[tuple[str, str], float] = {
-            (row.sex, row.age): row.lx for row in local_lt.itertuples(index=False)
-        }
-        self.local_ex: dict[tuple[str, str], float] = {
-            (row.sex, row.age): row.ex for row in local_lt.itertuples(index=False)
-        }
+        local_keys = list(
+            zip(
+                local_lt["sex"].astype(str),
+                local_lt["age"].astype(str),
+                strict=True,
+            )
+        )
+        self.local_lx: dict[tuple[str, str], float] = dict(
+            zip(
+                local_keys,
+                map(float, local_lt["lx"].to_numpy(dtype=float)),
+                strict=True,
+            )
+        )
+        self.local_ex: dict[tuple[str, str], float] = dict(
+            zip(
+                local_keys,
+                map(float, local_lt["ex"].to_numpy(dtype=float)),
+                strict=True,
+            )
+        )
         standard_lt = data.standard_life_table()
         self.standard_ex: dict[str, float] = dict(
-            standard_lt[["age", "ex"]].itertuples(index=False, name=None)
+            zip(
+                standard_lt["age"].astype(str),
+                map(float, standard_lt["ex"].to_numpy(dtype=float)),
+                strict=True,
+            )
         )
 
         self._total_yll_local = self._compute_total_yll(life_table="local")
@@ -464,6 +507,7 @@ def assess(
         raise ValueError("mode='age' requires the age argument (years)")
     requested_age = None
     if mode == "age":
+        assert age is not None
         try:
             requested_age = float(age)
         except (TypeError, ValueError) as exc:
@@ -541,6 +585,8 @@ def assess(
         a0 = None
     else:
         a0 = burden.median_adult_age() if mode == "median" else requested_age
+        if a0 is None:
+            raise RuntimeError("Validated individual assessment has no starting age")
         causes = _assess_individual(
             curves,
             burden,
@@ -598,15 +644,15 @@ def assess(
 
 
 def _assess_population(
-    curves,
-    burden,
-    diet,
-    risk_factors,
-    relative_only,
+    curves: RelativeRiskCurves,
+    burden: CountryBurden,
+    diet: SubstitutedDiet,
+    risk_factors: tuple[str, ...],
+    relative_only: bool,
     *,
-    sodium_model=None,
-    sodium_g=None,
-):
+    sodium_model: SodiumMeanShiftModel | None = None,
+    sodium_g: float | None = None,
+) -> dict[str, CauseResult]:
     causes: dict[str, CauseResult] = {}
     for cause in CAUSES:
         relevant = [risk for risk in risk_factors if (risk, cause) in curves.pairs]
@@ -627,19 +673,20 @@ def _assess_population(
             )
             direct_risk_ratio = math.exp(log_meal - log_base)
             for sex in SEXES:
-                sodium_risk_ratio = (
-                    sodium_model.stratum_effect(
+                if sodium_relevant:
+                    assert sodium_model is not None
+                    assert sodium_g is not None
+                    sodium_risk_ratio = sodium_model.stratum_effect(
                         cause,
                         age,
                         sex,
                         baseline_scale=diet.f,
                         meal_sodium_g=sodium_g,
                     ).risk_ratio
-                    if sodium_relevant
-                    else 1.0
-                )
+                else:
+                    sodium_risk_ratio = 1.0
                 risk_ratio = direct_risk_ratio * sodium_risk_ratio
-                for life_table in ("local", "standard"):
+                for life_table in LIFE_TABLES:
                     delta[life_table] += burden.yll_by_stratum(
                         cause, age, sex, life_table=life_table
                     ) * (1.0 - risk_ratio)
@@ -662,16 +709,16 @@ def _assess_population(
 
 
 def _assess_individual(
-    curves,
-    burden,
-    diet,
-    risk_factors,
-    a0,
-    relative_only,
+    curves: RelativeRiskCurves,
+    burden: CountryBurden,
+    diet: SubstitutedDiet,
+    risk_factors: tuple[str, ...],
+    a0: float,
+    relative_only: bool,
     *,
-    sodium_model=None,
-    sodium_g=None,
-):
+    sodium_model: SodiumMeanShiftModel | None = None,
+    sodium_g: float | None = None,
+) -> dict[str, CauseResult]:
     a0_bucket = age_to_bucket(a0)
     future_ages = [a for a in ADULT_AGES if AGE_START[a] >= AGE_START[a0_bucket]]
     sex_weights = burden.sex_weights(a0_bucket)
@@ -698,17 +745,18 @@ def _assess_individual(
             )
             direct_risk_ratio = math.exp(log_meal - log_base)
             for sex in SEXES:
-                sodium_risk_ratio = (
-                    sodium_model.stratum_effect(
+                if sodium_relevant:
+                    assert sodium_model is not None
+                    assert sodium_g is not None
+                    sodium_risk_ratio = sodium_model.stratum_effect(
                         cause,
                         age_band,
                         sex,
                         baseline_scale=diet.f,
                         meal_sodium_g=sodium_g,
                     ).risk_ratio
-                    if sodium_relevant
-                    else 1.0
-                )
+                else:
+                    sodium_risk_ratio = 1.0
                 risk_ratio = direct_risk_ratio * sodium_risk_ratio
                 paf_a = 1.0 - risk_ratio
                 if age_band == a0_bucket:
@@ -738,18 +786,18 @@ def _assess_individual(
 
 
 def _attribute_by_risk(
-    curves,
-    burden,
-    diet,
-    risk_factors,
-    causes,
-    mode,
-    a0,
+    curves: RelativeRiskCurves,
+    burden: CountryBurden,
+    diet: SubstitutedDiet,
+    risk_factors: tuple[str, ...],
+    causes: dict[str, CauseResult],
+    mode: str,
+    a0: float | None,
     *,
     life_table: LifeTableKind,
-    sodium_model,
-    sodium_g,
-):
+    sodium_model: SodiumMeanShiftModel | None,
+    sodium_g: float | None,
+) -> dict[str, float]:
     """Additive decomposition of total dYLL across risk factors.
 
     Each cause's dYLL is split in proportion to each risk factor's share of the
@@ -757,10 +805,12 @@ def _attribute_by_risk(
     in). Shares sum to the cause total exactly (up to the linearisation of the
     log->RR map, which is what the PAF itself uses).
     """
-    attribution = dict.fromkeys(risk_factors, 0.0)
+    attribution: dict[str, float] = dict.fromkeys(risk_factors, 0.0)
     if mode == "population":
-        age_bands = [None]
+        age_bands: list[str] = []
     else:
+        if a0 is None:
+            raise RuntimeError("Individual attribution has no starting age")
         a0_bucket = age_to_bucket(a0)
         age_bands = [a for a in ADULT_AGES if AGE_START[a] >= AGE_START[a0_bucket]]
 
@@ -821,22 +871,24 @@ def _attribute_by_risk(
 
 
 def _sodium_attribution_log_ratio(
-    sodium_model,
-    burden,
-    diet,
-    cause,
-    mode,
-    age_bands,
+    sodium_model: SodiumMeanShiftModel | None,
+    burden: CountryBurden,
+    diet: SubstitutedDiet,
+    cause: str,
+    mode: str,
+    age_bands: list[str],
     *,
-    life_table,
-    sodium_g,
-):
+    life_table: LifeTableKind,
+    sodium_g: float | None,
+) -> float:
     """Effective sodium log-risk change used only for additive attribution."""
 
     if sodium_model is None or not (
         cause == "StomachCancer" or cause in MEDIATED_CURVE_BY_CAUSE
     ):
         return 0.0
+    if sodium_g is None:
+        raise RuntimeError("Active sodium attribution has no sodium exposure")
     if mode == "population":
         weighted = 0.0
         total = 0.0

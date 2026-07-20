@@ -7,8 +7,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 from . import data
 
@@ -60,25 +62,30 @@ class SodiumMeanShiftModel:
         if mediator.empty:
             raise KeyError(f"No bundled sodium mediator baseline for {country!r}")
         self.country = country
-        self.baseline_urinary_g = {
-            (row.age, row.sex): float(row.sodium_urinary_g_per_day_mean)
+        self.baseline_urinary_g: dict[tuple[str, str], float] = {
+            (str(row.age), str(row.sex)): float(
+                cast(float, row.sodium_urinary_g_per_day_mean)
+            )
             for row in mediator.itertuples(index=False)
         }
-        self.baseline_sbp_mmhg = {
-            (row.age, row.sex): float(row.sbp_mmhg_mean)
+        self.baseline_sbp_mmhg: dict[tuple[str, str], float] = {
+            (str(row.age), str(row.sex)): float(cast(float, row.sbp_mmhg_mean))
             for row in mediator.itertuples(index=False)
         }
 
         curves = data.sodium_relative_risks()
-        self.curves: dict[tuple[str, str], tuple[np.ndarray, np.ndarray]] = {}
-        for (path, cause), group in curves.groupby(["path", "curve_cause"], sort=False):
-            self.curves[(str(path), str(cause))] = (
+        self.curves: dict[
+            tuple[str, str], tuple[NDArray[np.float64], NDArray[np.float64]]
+        ] = {}
+        for key, group in curves.groupby(["path", "curve_cause"], sort=False):
+            path, cause = cast(tuple[str, str], key)
+            self.curves[(path, cause)] = (
                 group["exposure"].to_numpy(dtype=float),
                 np.log(group["rr_mean"].to_numpy(dtype=float)),
             )
         attenuation = data.sbp_age_attenuation()
-        self.age_attenuation = {
-            (row.curve_cause, row.age): float(row.beta)
+        self.age_attenuation: dict[tuple[str, str], float] = {
+            (str(row.curve_cause), str(row.age)): float(cast(float, row.beta))
             for row in attenuation.itertuples(index=False)
         }
 
@@ -180,13 +187,15 @@ class SodiumMeanShiftModel:
         return baseline_total / weight_total, meal_total / weight_total
 
     def _log_rr_array(
-        self, path: str, curve_cause: str, exposure: np.ndarray
-    ) -> np.ndarray:
+        self, path: str, curve_cause: str, exposure: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
         x, log_rr = self.curves[(path, curve_cause)]
-        return np.interp(exposure, x, log_rr)
+        return np.asarray(np.interp(exposure, x, log_rr), dtype=float)
 
 
-def _tmrel_quadrature(*breakpoints: float) -> tuple[np.ndarray, np.ndarray]:
+def _tmrel_quadrature(
+    *breakpoints: float,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Return nodes and expectation weights for the uniform sodium TMREL."""
 
     bounds = {

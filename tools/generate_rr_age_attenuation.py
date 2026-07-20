@@ -47,6 +47,7 @@ import logging
 import math
 from pathlib import Path
 import re
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -135,10 +136,12 @@ def parse_gbd2019_rr(xlsx: Path) -> pd.DataFrame:
     """Parse the GBD 2019 RR workbook into tidy mean-RR records (15 adult ages)."""
     raw = pd.read_excel(xlsx, header=None)
     diet_rows = [
-        i for i, v in raw[0].items() if isinstance(v, str) and v.startswith("Diet")
+        i
+        for i, value in raw[0].items()
+        if isinstance(i, int) and isinstance(value, str) and value.startswith("Diet")
     ]
 
-    records: list[dict] = []
+    records: list[dict[str, object]] = []
     for k, start in enumerate(diet_rows):
         risk = GBD_RISK_NAMES.get(str(raw.at[start, 0]).strip())
         if risk is None:
@@ -178,10 +181,9 @@ def _fill_missing_ages(df: pd.DataFrame) -> pd.DataFrame:
     Missing ages copy from the nearest younger age (then nearest older), so the
     log-RR shape ratios below are computed over a complete age grid.
     """
-    rows = []
-    for (risk, cause, exp), grp in df.groupby(
-        ["risk_factor", "cause", "exposure_g_per_day"]
-    ):
+    rows: list[dict[str, object]] = []
+    for key, grp in df.groupby(["risk_factor", "cause", "exposure_g_per_day"]):
+        risk, cause, exp = cast(tuple[str, str, float], key)
         have = {r["age"]: r for _, r in grp.iterrows()}
         for i, age in enumerate(ADULT_AGE_LABELS):
             if age in have:
@@ -214,7 +216,8 @@ def _fill_missing_ages(df: pd.DataFrame) -> pd.DataFrame:
 def _extract_shape(rr19: pd.DataFrame) -> dict[tuple[str, str, str], float]:
     """log-RR age shape, normalized to the youngest adult bucket (clamped [0, 1])."""
     shape: dict[tuple[str, str, str], float] = {}
-    for (risk, cause), g in rr19.groupby(["risk_factor", "cause"]):
+    for key, g in rr19.groupby(["risk_factor", "cause"]):
+        risk, cause = cast(tuple[str, str], key)
         piv = g.pivot_table(index="exposure_g_per_day", columns="age", values="rr_mean")
         missing = [a for a in ADULT_AGE_LABELS if a not in piv.columns]
         if missing:

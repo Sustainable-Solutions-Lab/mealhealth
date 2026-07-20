@@ -96,6 +96,7 @@ git clone git@github.com:Sustainable-Solutions-Lab/mealhealth.git
 cd mealhealth
 
 uv run pytest -q                                   # run the test suite
+uv run mypy                                        # strict package + tools typing
 uv run ruff format . && uv run ruff check .        # format + lint
 uv run reuse lint                                  # license/SPDX check
 ```

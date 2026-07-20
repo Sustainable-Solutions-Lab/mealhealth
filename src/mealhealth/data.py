@@ -30,7 +30,7 @@ def _read(name: str) -> pd.DataFrame:
     # The bundled CSVs live in the ``data/`` directory of the package. We
     # reference the package root (not ``mealhealth.data``, which would collide
     # with this module's own name) and descend into ``data/``.
-    resource = resources.files("mealhealth").joinpath("data", name)
+    resource = resources.files("mealhealth").joinpath("data").joinpath(name)
     with resources.as_file(resource) as path:
         return pd.read_csv(path)
 

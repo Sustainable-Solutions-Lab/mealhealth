@@ -436,7 +436,7 @@ def wpp_age_sex_weights(
     melted["population"] = pd.to_numeric(melted["population"], errors="coerce")
     out = (
         melted.groupby(["ISO3_code", "age_group_id", "sex_id"], as_index=False)[
-            "population"
+            ["population"]
         ]
         .sum()
         .rename(columns={"ISO3_code": "source_country"})
