@@ -56,7 +56,7 @@ docs/                   # Sphinx site (MyST Markdown, furo), organised as:
 * **Processed meat is separate** from red meat (its own GBD 2023 curve; the
   baseline split comes from the GDD-IA processed fraction).
 * **Mass basis** reconciles GBD's native exposure bases with measured intakes;
-  the meal input basis is documented per group in `docs/food_groups.md`.
+  the meal input basis is documented per group in `docs/guide/food_groups.md`.
 * **Optional nutrient factors are separate from food groups.** They use explicit
   API keywords in mg, convert to the engine's g/day axis, and are excluded when
   omitted (`None`) but included when explicitly supplied as `0.0`.
@@ -81,9 +81,15 @@ tools, and the suite needs only bundled processed data and synthetic fixtures â€
 not the git-ignored `data/raw/` inputs.
 
 Dev and docs tooling live in PEP 735 `[dependency-groups]`, not in published
-extras. The docs site (Sphinx + MyST + furo) is deployed to GitHub Pages by
+extras. The docs site (Sphinx + MyST-NB + furo) is deployed to GitHub Pages by
 `.github/workflows/docs.yml` on pushes to `master`, once Pages is enabled for
 the repo.
+
+The docs build is a second test suite. It runs with `-W` in CI, so any Sphinx
+warning fails the build, and the `docs/examples/*.md` notebooks execute on
+every build â€” a break in the public API or in a figure's code fails the docs
+job. A cold build takes about 35 seconds; `docs/.jupyter_cache/` makes
+subsequent builds fast. Shared plot styling is in `docs/examples/mhstyle.py`.
 
 ## Regenerating bundled data
 

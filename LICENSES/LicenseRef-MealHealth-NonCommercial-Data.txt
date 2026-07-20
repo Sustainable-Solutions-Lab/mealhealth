@@ -45,4 +45,4 @@ unrestricted-redistribution rights over them.
 
 No warranty is provided. When publishing results, cite GBD (IHME), WHO GHE,
 GDD-IA (Springmann 2026), and UN WPP, as described in
-docs/data_sources.md.
+docs/model/data_sources.md.
