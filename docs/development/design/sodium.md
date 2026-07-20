@@ -6,6 +6,19 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Design: sodium as a risk factor in `mealhealth`
 
+:::{note}
+**This note predates the implementation.** It was written to decide the design,
+and its status lines describe sodium as not yet built. Sodium *is* built: the
+first-release mean-shift estimand described here ships in `sodium.py`, and the
+engine is sex-resolved as section 5 anticipated.
+
+Read it for the reasoning — why a mediator model rather than bundled sodium
+curves, why the TMREL is integrated rather than fixed at its midpoint, and what
+a distributional treatment would require — not as a statement of current
+behaviour. [Limitations](../../model/limitations.md) and
+[Methodology](../../model/methodology.md) describe what the code actually does.
+:::
+
 Status: reviewed design. The scientific architecture, first-release mean-shift
 estimand, production sodium-to-SBP response, TMREL treatment, uncertainty
 execution model, and public result semantics are decided. Sodium is **not ready

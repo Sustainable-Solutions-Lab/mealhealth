@@ -6,6 +6,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Baseline diet design
 
+:::{note}
+Written while the independent baseline was being built; its "feature branch"
+status line is historical. The contract it describes is the one that ships.
+[Data sources](../../model/data_sources.md) is the current description.
+:::
+
 Status: implemented on the feature branch for the independent baseline.
 
 This document records the implemented baseline contract. The canonical direct
