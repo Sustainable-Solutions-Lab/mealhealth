@@ -254,6 +254,20 @@ g/day urinary sodium; the other values are documented future sensitivities.
 
 ## Direct baseline and calories
 
+### Obtaining the GDD-IA calorie table (manual)
+
+Download `intake_kcals_2020.csv` (82.9 MB) from the GDD-IA Zenodo record
+[10.5281/zenodo.20818140](https://doi.org/10.5281/zenodo.20818140) and save it
+under `data/raw/` **renamed** to `GDD-IA-intake_kcals_2020.csv`:
+
+```
+data/raw/GDD-IA-intake_kcals_2020.csv
+```
+
+No account is needed — the record is public and CC BY 4.0 — but the file is too
+large to fetch on every build, so the workflow expects it to be staged by hand
+like the IHME archives. The file is used unmodified; only the rename matters.
+
 `baseline_exposure.csv` is the canonical direct baseline. The checked-in source
 manifest (`tools/reference/baseline_country_sources.csv`) has 175 target
 countries and explicit GBD/calorie source proxies. Every direct row is a 2020
@@ -307,8 +321,8 @@ No separate permission is needed; attribution under CC-BY-4.0 suffices.
   under the IHME Free-of-Charge Non-commercial User Agreement. WHO mortality is
   governed separately by the custom WHO dataset terms linked above, which
   permit redistribution for public-health purposes with attribution. The other
-  components are more permissive: UN WPP is CC BY 3.0 IGO; the GDD-IA-derived
-  diet data is CC BY 4.0 (attribution-only); NHANES is public domain.
+  components are more permissive: UN WPP is CC BY 3.0 IGO, and the GDD-IA-derived
+  diet data is CC BY 4.0 (attribution-only).
 
 **Consequence:** although the code is GPL, the distributed package *as a whole*
 (code + bundled data) is for **non-commercial research, teaching and private

@@ -67,7 +67,7 @@ print("By cause:", result.delta_paf_total)      # per-cause % risk change
 
 The **source code** is GPL-3.0-or-later, but the **bundled data** carries a
 **non-commercial** restriction — it comes from IHME GBD. The other sources (UN
-World Population Prospects, the GDD-IA dietary data (CC BY 4.0), NHANES) are
+World Population Prospects, and the GDD-IA dietary data under CC BY 4.0) are
 more permissive. WHO mortality is governed separately by custom WHO dataset
 terms permitting redistribution for public-health purposes with attribution.
 The distributed package *as a whole* is therefore for **non-commercial research,
