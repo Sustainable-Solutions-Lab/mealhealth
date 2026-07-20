@@ -25,4 +25,4 @@ jobs:
       - name: Install the minimum supported Python
         run: uv python install 3.10
       - name: Run strict mypy checks
-        run: uv run --python 3.10 mypy
+        run: uv run --locked --python 3.10 mypy

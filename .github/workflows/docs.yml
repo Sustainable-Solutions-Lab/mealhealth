@@ -13,17 +13,11 @@ name: Docs
 on:
   push:
     branches: [master]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-# Allow one concurrent deployment; don't cancel an in-progress publish.
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   build:
@@ -35,15 +29,25 @@ jobs:
         with:
           enable-cache: true
       - name: Build the docs
-        run: uv run --group docs sphinx-build -b html -W docs docs/_build/html
+        run: >-
+          uv run --locked --no-dev --group docs
+          sphinx-build -b html -W docs docs/_build/html
       - name: Upload the site artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/_build/html
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    # Allow one concurrent deployment; don't cancel an in-progress publish.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

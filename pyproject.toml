@@ -28,14 +28,22 @@ Documentation = "https://sustainable-solutions-lab.github.io/mealhealth/"
 # published extras. `uv run` installs the `dev` group automatically; build the
 # docs with `uv run --group docs sphinx-build -b html docs docs/_build/html`.
 [dependency-groups]
+data = [
+    "openpyxl>=3",              # source workbook readers
+    "pydantic>=2.12,<3",        # strict validation of external builder responses
+    "pycountry>=22",            # country mapping in source builders
+    "typing-extensions>=4.12",  # TypedDict support for Pydantic on Python 3.10
+]
+test = [
+    { include-group = "data" },
+    "pytest>=7",
+]
 dev = [
+    { include-group = "test" },
     "mypy>=1.11",
     "pandas-stubs>=2.2",
-    "pytest>=7",
     "ruff>=0.5",
     "reuse>=3",
-    "openpyxl>=3",   # needed by the tools/build_data.py workflow
-    "pycountry>=22",  # needed by the tools/build_data.py workflow
 ]
 docs = [
     "sphinx>=8",

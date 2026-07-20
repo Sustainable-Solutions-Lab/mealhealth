@@ -76,7 +76,21 @@ def test_retrieval_queries_each_cause_and_sex_without_truncation(monkeypatch):
 
     def fake_get(params):
         calls.append(params)
-        return {"value": [{column: None for column in prepare.WHO_GHE_SELECT_COLUMNS}]}
+        return prepare.WhoGhePage(
+            value=[
+                {
+                    "DIM_COUNTRY_CODE": "USA",
+                    "DIM_YEAR_CODE": 2020,
+                    "DIM_AGEGROUP_CODE": "Y60T64",
+                    "DIM_SEX_CODE": "MALE",
+                    "DIM_GHECAUSE_CODE": 640,
+                    "DIM_GHECAUSE_TITLE": "Stomach cancer",
+                    "ATTR_POPULATION_NUMERIC": 1000.0,
+                    "VAL_DTHS_RATE100K_NUMERIC": 2.0,
+                    "VAL_DTHS_COUNT_NUMERIC": 0.02,
+                }
+            ]
+        )
 
     monkeypatch.setattr(prepare, "_who_ghe_get", fake_get)
     result = prepare.retrieve_who_ghe_mortality()

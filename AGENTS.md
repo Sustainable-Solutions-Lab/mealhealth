@@ -27,6 +27,7 @@ tools/prepare_data.py              # internal health/demographic build stage
 tools/build_baseline_exposure.py  # internal GBD/WPP direct-baseline stage
 tools/build_baseline_calories.py  # internal GDD-IA/WPP calorie-baseline stage
 tools/build_baseline_mediators_from_gbd.py # internal sodium/SBP baseline stage
+tools/source_schemas.py           # strict external JSON response schemas
 tools/generate_rr_age_attenuation.py # one-off: curated RR age-attenuation table from GBD 2019
 tools/reference/*.csv              # curated regeneration inputs (red-meat RR, TMREL, age attenuation)
 tests/                  # pytest suite
@@ -67,6 +68,11 @@ uv run ruff format . && uv run ruff check .
 uv run reuse lint
 uv run --group docs sphinx-build -b html docs docs/_build/html   # build the docs site
 ```
+
+The CI test job uses `uv run --locked --no-dev --group test pytest -q` in a
+clean checkout. The test group excludes lint, type-checking, and documentation
+tools, and the suite needs only bundled processed data and synthetic fixtures —
+not the git-ignored `data/raw/` inputs.
 
 Dev and docs tooling live in PEP 735 `[dependency-groups]`, not in published
 extras. The docs site (Sphinx + MyST + furo) is deployed to GitHub Pages by

@@ -13,13 +13,20 @@ an internal stage invoked by ``tools/build_data.py``.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, cast
+from typing import Literal, overload
 import urllib.parse
 import urllib.request
 
 import pandas as pd
+
+from tools.source_schemas import (
+    BOP_CURVE_ADAPTER,
+    BOP_CURVE_METADATA_ADAPTER,
+    BopCurveMetadata,
+    BopCurvePoint,
+    validate_json_response,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "src" / "mealhealth" / "data" / "sodium_relative_risks.csv"
@@ -37,7 +44,17 @@ CURVES = {
 }
 
 
-def _get(endpoint: str, **params: int) -> Any:
+@overload
+def _get(
+    endpoint: Literal["risk_cause_metadata"], **params: int
+) -> BopCurveMetadata: ...
+
+
+@overload
+def _get(endpoint: Literal["output_data"], **params: int) -> list[BopCurvePoint]: ...
+
+
+def _get(endpoint: str, **params: int) -> BopCurveMetadata | list[BopCurvePoint]:
     query = urllib.parse.urlencode(params)
     url = f"{BOP_API_BASE}/{endpoint}?{query}"
     request = urllib.request.Request(  # noqa: S310 - pinned HTTPS host
@@ -49,7 +66,15 @@ def _get(endpoint: str, **params: int) -> Any:
         },
     )
     with urllib.request.urlopen(request, timeout=120) as response:  # noqa: S310
-        return json.load(response)
+        payload = response.read()
+    source = f"IHME Burden-of-Proof {endpoint}"
+    if endpoint == "risk_cause_metadata":
+        return validate_json_response(
+            payload, BOP_CURVE_METADATA_ADAPTER, source=source
+        )
+    if endpoint == "output_data":
+        return validate_json_response(payload, BOP_CURVE_ADAPTER, source=source)
+    raise ValueError(f"Unsupported Burden-of-Proof endpoint: {endpoint}")
 
 
 def build_relative_risks() -> pd.DataFrame:
@@ -57,24 +82,17 @@ def build_relative_risks() -> pd.DataFrame:
 
     rows: list[dict[str, object]] = []
     for curve_cause, (path, rei_id, cause_id, unit, stars) in CURVES.items():
-        metadata = cast(
-            dict[str, Any],
-            _get("risk_cause_metadata", risk=rei_id, cause=cause_id),
-        )
-        if metadata.get("risk_unit") != unit:
+        metadata = _get("risk_cause_metadata", risk=rei_id, cause=cause_id)
+        if metadata["risk_unit"] != unit:
             raise ValueError(
-                f"{curve_cause}: expected unit {unit!r}, got "
-                f"{metadata.get('risk_unit')!r}"
+                f"{curve_cause}: expected unit {unit!r}, got {metadata['risk_unit']!r}"
             )
-        if metadata.get("star_rating") != stars:
+        if metadata["star_rating"] != stars:
             raise ValueError(
                 f"{curve_cause}: expected {stars} stars, got "
-                f"{metadata.get('star_rating')!r}"
+                f"{metadata['star_rating']!r}"
             )
-        curve = cast(
-            list[dict[str, Any]],
-            _get("output_data", risk=rei_id, cause=cause_id),
-        )
+        curve = _get("output_data", risk=rei_id, cause=cause_id)
         exposure = [float(point["risk"]) for point in curve]
         if (
             len(exposure) < 2

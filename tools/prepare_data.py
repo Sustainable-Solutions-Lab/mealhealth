@@ -37,17 +37,28 @@ built here. This module is an internal stage invoked by
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import re
 import time
-from typing import Any, cast
+from typing import Literal, overload
 import urllib.error
 import urllib.parse
 import urllib.request
 
 import numpy as np
 import pandas as pd
+
+from tools.source_schemas import (
+    BOP_CURVE_ADAPTER,
+    BOP_CURVE_METADATA_ADAPTER,
+    BOP_RISK_CAUSE_MANIFEST_ADAPTER,
+    WHO_GHE_PAGE_ADAPTER,
+    BopCurveMetadata,
+    BopCurvePoint,
+    WhoGhePage,
+    WhoGheRow,
+    validate_json_response,
+)
 
 # --------------------------------------------------------------------------
 # Configuration
@@ -243,7 +254,27 @@ _RR_CURVE_COLS = [
 ]
 
 
-def _bop_get(path: str, **params: str | int) -> Any:
+@overload
+def _bop_get(
+    path: Literal["metadata/risk_cause"], **params: str | int
+) -> dict[str, list[int]]: ...
+
+
+@overload
+def _bop_get(
+    path: Literal["risk_cause_metadata"], **params: str | int
+) -> BopCurveMetadata: ...
+
+
+@overload
+def _bop_get(
+    path: Literal["output_data"], **params: str | int
+) -> list[BopCurvePoint]: ...
+
+
+def _bop_get(
+    path: str, **params: str | int
+) -> dict[str, list[int]] | BopCurveMetadata | list[BopCurvePoint]:
     """GET one Burden-of-Proof JSON endpoint with a browser User-Agent."""
     qs = urllib.parse.urlencode(params)
     url = f"{BOP_API_BASE}/{path}" + (f"?{qs}" if qs else "")
@@ -256,7 +287,19 @@ def _bop_get(path: str, **params: str | int) -> Any:
         },
     )
     with urllib.request.urlopen(req, timeout=120) as resp:  # noqa: S310
-        return json.load(resp)
+        payload = resp.read()
+    source = f"IHME Burden-of-Proof {path}"
+    if path == "metadata/risk_cause":
+        return validate_json_response(
+            payload, BOP_RISK_CAUSE_MANIFEST_ADAPTER, source=source
+        )
+    if path == "risk_cause_metadata":
+        return validate_json_response(
+            payload, BOP_CURVE_METADATA_ADAPTER, source=source
+        )
+    if path == "output_data":
+        return validate_json_response(payload, BOP_CURVE_ADAPTER, source=source)
+    raise ValueError(f"Unsupported Burden-of-Proof endpoint: {path}")
 
 
 def _fetch_bop_curves() -> pd.DataFrame:
@@ -283,10 +326,10 @@ def _fetch_bop_curves() -> pd.DataFrame:
                     "Burden-of-Proof tool; check GBD_REI_ID / RISK_CAUSE_MAP."
                 )
             meta = _bop_get("risk_cause_metadata", risk=rei, cause=cid)
-            if meta.get("risk_unit") != "g/day":
+            if meta["risk_unit"] != "g/day":
                 raise ValueError(
                     f"{risk}->{cause}: unexpected BoP exposure unit "
-                    f"{meta.get('risk_unit')!r} (only 'g/day' is supported)"
+                    f"{meta['risk_unit']!r} (only 'g/day' is supported)"
                 )
             curve = _bop_get("output_data", risk=rei, cause=cid)
             xs = [float(p["risk"]) for p in curve]
@@ -607,7 +650,7 @@ MORTALITY_COUNTRY_PROXIES = {
 }
 
 
-def _who_ghe_get(params: dict[str, str | int]) -> dict[str, Any]:
+def _who_ghe_get(params: dict[str, str | int]) -> WhoGhePage:
     query = urllib.parse.urlencode(params)
     request = urllib.request.Request(  # noqa: S310 (trusted WHO host)
         f"{WHO_GHE_API_URL}?{query}",
@@ -618,7 +661,9 @@ def _who_ghe_get(params: dict[str, str | int]) -> dict[str, Any]:
             with urllib.request.urlopen(  # noqa: S310
                 request, timeout=120
             ) as response:
-                return cast(dict[str, Any], json.load(response))
+                return validate_json_response(
+                    response.read(), WHO_GHE_PAGE_ADAPTER, source="WHO GHE OData"
+                )
         except urllib.error.HTTPError as exc:
             if exc.code not in {429, 500, 502, 503, 504} or attempt == 4:
                 raise
@@ -632,7 +677,7 @@ def _who_ghe_get(params: dict[str, str | int]) -> dict[str, Any]:
 def retrieve_who_ghe_mortality() -> pd.DataFrame:
     """Retrieve complete 2020 age/sex mortality rows for model causes."""
 
-    rows: list[dict[str, object]] = []
+    rows: list[WhoGheRow] = []
     for cause_id in WHO_GHE_CAUSE_MAP:
         for source_sex in ("MALE", "FEMALE"):
             params: dict[str, str | int] = {
@@ -645,18 +690,16 @@ def retrieve_who_ghe_mortality() -> pd.DataFrame:
                 "$top": 10000,
             }
             payload = _who_ghe_get(params)
-            page = payload.get("value")
-            if not isinstance(page, list) or not page:
+            page = payload.value
+            if not page:
                 raise ValueError(
                     f"WHO GHE returned no {source_sex} rows for cause {cause_id}"
                 )
-            if len(page) >= int(params["$top"]) or payload.get("@odata.nextLink"):
+            if len(page) >= int(params["$top"]) or payload.next_link:
                 raise ValueError(
                     "WHO GHE query may be truncated; reduce the query dimensions"
                 )
-            if not all(isinstance(item, dict) for item in page):
-                raise ValueError("WHO GHE returned a non-object row")
-            rows.extend(cast(list[dict[str, object]], page))
+            rows.extend(page)
     return pd.DataFrame(rows, columns=WHO_GHE_SELECT_COLUMNS)
 
 
