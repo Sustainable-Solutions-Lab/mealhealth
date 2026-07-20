@@ -69,6 +69,11 @@ uv run reuse lint
 uv run --group docs sphinx-build -b html docs docs/_build/html   # build the docs site
 ```
 
+The CI test job uses `uv run --locked --no-dev --group test pytest -q` in a
+clean checkout. The test group excludes lint, type-checking, and documentation
+tools, and the suite needs only bundled processed data and synthetic fixtures —
+not the git-ignored `data/raw/` inputs.
+
 Dev and docs tooling live in PEP 735 `[dependency-groups]`, not in published
 extras. The docs site (Sphinx + MyST + furo) is deployed to GitHub Pages by
 `.github/workflows/docs.yml` on pushes to `master`, once Pages is enabled for

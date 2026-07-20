@@ -101,6 +101,17 @@ uv run ruff format . && uv run ruff check .        # format + lint
 uv run reuse lint                                  # license/SPDX check
 ```
 
+To reproduce CI's smaller test environment, excluding lint, typing, and docs
+dependencies, run:
+
+```bash
+uv run --locked --no-dev --group test pytest -q
+```
+
+The test suite reads the processed data bundled with the package and creates
+any source-like fixtures it needs in temporary directories. The separately
+downloaded, git-ignored `data/raw/` inputs are not required.
+
 `uv sync` up front is optional; it materialises the environment (and writes
 `uv.lock`) so later `uv run` calls start instantly.
 
