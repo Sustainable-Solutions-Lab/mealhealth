@@ -81,27 +81,34 @@ dependencies = [
 `pixi add --pypi "mealhealth @ git+..."` and plain
 `pip install "git+https://github.com/..."` work too. Runtime dependencies are
 just `numpy` and `pandas`; the data is bundled with the package. See the
-[installation guide](https://sustainable-solutions-lab.github.io/mealhealth/installation.html)
+[installation guide](https://sustainable-solutions-lab.github.io/mealhealth/guide/installation.html)
 for pinning to a tag, SSH URLs, and a local development checkout.
 
 ## Documentation
 
 Full documentation is published at
 **<https://sustainable-solutions-lab.github.io/mealhealth/>**. The sources live
-in [`docs/`](docs/):
+in [`docs/`](docs/), organised as a user guide, a description of the model, and
+developer notes:
 
-* [`docs/methodology.md`](docs/methodology.md) — the formulas, age modes, and
-  substitution model.
-* [`docs/food_groups.md`](docs/food_groups.md) — food-group definitions and the
-  **mass basis** you must supply each group in (this matters for correctness).
-* [`docs/data_sources.md`](docs/data_sources.md) — data provenance and
-  **licensing** (read this before any redistribution or commercial use).
-* [`docs/usage.md`](docs/usage.md) — API reference and worked examples.
+* [`docs/guide/`](docs/guide/) — installation, quickstart, and the food-group
+  definitions with the **mass basis** you must supply each group in (this
+  matters for correctness).
+* [`docs/examples/`](docs/examples/) — worked notebooks, executed at build time,
+  comparing meals, countries, intakes and ages.
+* [`docs/model/`](docs/model/) — the formulas and age modes
+  ([methodology](docs/model/methodology.md)), data provenance
+  ([data sources](docs/model/data_sources.md)), what the model cannot do
+  ([limitations](docs/model/limitations.md)), and **licensing**
+  ([licensing and citation](docs/model/licensing.md) — read this before any
+  redistribution or commercial use).
+* [`docs/development/`](docs/development/) — working on the package, and
+  [rebuilding the bundled data](docs/development/data_build.md).
 
 Build the site locally with `uv run --group docs sphinx-build -b html docs docs/_build/html`.
 
-To regenerate all bundled data after placing the manually downloaded raw files
-under `data/raw/`, run:
+To regenerate all bundled data, stage the three IHME archives under `data/raw/`
+(`uv run python -m tools.build_data --list-inputs` says exactly which) and run:
 
 ```bash
 uv run python -m tools.build_data
@@ -117,6 +124,6 @@ World Population Prospects and the GDD-IA dietary data) are more permissive —
 GDD-IA is CC BY 4.0. The distributed package *as a whole* is therefore for
 **non-commercial research, teaching and private study, with attribution** — the
 GPL on the code does *not* grant unrestricted reuse of the bundled data. See
-[`docs/data_sources.md`](docs/data_sources.md).
+[`docs/model/licensing.md`](docs/model/licensing.md).
 
 Repository: `git@github.com:Sustainable-Solutions-Lab/mealhealth.git`

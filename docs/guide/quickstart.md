@@ -4,10 +4,11 @@ SPDX-FileCopyrightText: 2026 Koen van Greevenbroek
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Usage
+# Quickstart
 
-See [Installation](installation.md) for how to add `mealhealth` to a project or
-set up a local development checkout.
+See [Installation](installation.md) for how to add `mealhealth` to a project.
+Once a meal is assessed, [Interpreting results](interpreting.md) explains what
+the numbers mean.
 
 ## The one function you need
 
@@ -130,23 +131,10 @@ mh.nutrient_factors()["omega3"].api_unit       # 'mg'
 mh.nutrient_factors()["sodium"].api_unit       # 'mg'
 ```
 
-## Reproducing the bundled data
+## Next
 
-The bundled **health and demographic** CSVs (`relative_risks.csv`,
-`mortality.csv`, `population.csv`, `local_life_table.csv`, and
-`standard_life_table.csv`) are regenerated from public source datasets.
-Download the authenticated exposure and reference-life-table files into
-`data/raw/`; WHO mortality, UN WPP, the national location hierarchy, and public
-BoP curves download automatically. Then run:
-
-```bash
-uv run python -m tools.build_data
-```
-
-The command checks the manually staged files and runs the data-build stages in
-dependency order. The `tools/generate_*_age_attenuation.py` files update
-curated GBD 2019 age-shape donor tables when their source workbook is
-deliberately refreshed.
-
-See [`data_sources.md`](data_sources.md) for exactly which files to download and
-where to place them.
+The [examples](../examples/index.md) take the same API into comparisons across
+meals, countries, intakes and ages, with plots.
+[Interpreting results](interpreting.md) covers what the numbers mean and how far
+to trust them, and [Troubleshooting](troubleshooting.md) covers the errors and
+warnings you are most likely to hit.

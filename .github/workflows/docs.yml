@@ -4,10 +4,14 @@
 
 # Build the Sphinx docs and deploy them to GitHub Pages.
 #
-# This does nothing until Pages is enabled for the repository:
+# The build runs on every pull request. It uses -W, so any Sphinx warning fails
+# it, and the docs/examples/ notebooks execute, so a break in the public API
+# fails it too. Pull requests get the rendered site as a downloadable artifact
+# rather than a hosted preview: the Pages deployment replaces the whole site
+# and has no per-pull-request subpaths.
+#
+# Deployment does nothing until Pages is enabled for the repository:
 # Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
-# Until then the build job still runs (and catches broken docs), but the
-# deploy job has nowhere to publish.
 name: Docs
 
 on:
@@ -32,7 +36,18 @@ jobs:
         run: >-
           uv run --locked --no-dev --group docs
           sphinx-build -b html -W docs docs/_build/html
+      # On a pull request there is nowhere to deploy, so publish the built site
+      # as a plain artifact instead: download it from the run's summary page and
+      # open index.html to review rendered prose and executed notebook figures.
+      - name: Upload the site for review
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview-pr-${{ github.event.pull_request.number }}
+          path: docs/_build/html
+          retention-days: 14
       - name: Upload the site artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/_build/html

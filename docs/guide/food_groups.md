@@ -57,7 +57,7 @@ The model converts dietary sodium to the GBD 24-hour urinary-sodium basis and
 evaluates a country × age × sex mean SBP shift. It does not use personal blood
 pressure, hypertension treatment, kidney function, or salt sensitivity.
 
-## Mass basis — read this for correct numbers
+## Mass basis, and why it matters
 
 The relative-risk curves and the bundled baseline diet are all expressed in a
 consistent per-group **basis** (GBD's native exposure bases reconciled with
@@ -86,10 +86,12 @@ with its own dose–response curve and its own baseline exposure:
 * `processed_meat` — bacon, ham, sausages, hot dogs, deli/cured meats.
 
 The per-country baseline rows come directly from the GBD 2023 processed-meat
-and red-meat exposure files (see [Data sources](data_sources.md#direct-baseline-and-calories)).
+and red-meat exposure files (see [Data sources](../model/data_sources.md#baseline-exposure)).
 You can disable processed meat as a separate group with
-`include_processed_meat=False`, in which case only the seven-minus-one groups
-are modelled and any `processed_meat` you pass is rejected.
+`include_processed_meat=False`. That drops the group from the model entirely —
+the country's baseline processed-meat intake goes too, not just the meal's — so
+only the remaining six groups are assessed. Passing `processed_meat` in the meal
+alongside the flag raises `ValueError` rather than silently discarding it.
 
 ## Inspecting the definitions programmatically
 

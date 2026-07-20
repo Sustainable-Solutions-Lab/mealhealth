@@ -4,7 +4,7 @@
 
 """Core health-impact calculation engine.
 
-Implements the formulas in ``docs/methodology.md``:
+Implements the formulas in ``docs/model/methodology.md``:
 
 * ``RR_{r,d}(x)`` read off the GBD dose-response curve by log-linear
   interpolation;
@@ -524,6 +524,13 @@ def assess(
             f"Unknown meal food groups: {sorted(unknown)}. "
             f"Valid risk-factor groups: {list(RISK_FACTORS)}. Foods outside "
             "these groups affect the result only via meal_kcal."
+        )
+    if not include_processed_meat and "processed_meat" in meal:
+        raise ValueError(
+            "include_processed_meat=False excludes processed meat from the "
+            "model entirely, so 'processed_meat' cannot be supplied in the "
+            "meal. Drop the key, or leave include_processed_meat at its "
+            "default so the group is assessed."
         )
 
     nutrient_amounts: dict[str, float] = {}

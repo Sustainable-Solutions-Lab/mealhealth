@@ -19,6 +19,7 @@ src/mealhealth/
   foodgroups.py   # risk-factor groups, causes, age buckets, mass basis
   data.py         # cached loaders for bundled CSVs
   model.py        # calculation engine (curves, burden, substitution, modes)
+  sodium.py       # sodium mean-shift mediator model
   api.py          # public assess_meal() and helpers
   data/*.csv      # bundled processed data (+ DATA_PROVENANCE.md)
 tools/build_data.py                # bundled-data regeneration workflow
@@ -31,7 +32,12 @@ tools/source_schemas.py           # strict external JSON response schemas
 tools/generate_rr_age_attenuation.py # one-off: curated RR age-attenuation table from GBD 2019
 tools/reference/*.csv              # curated regeneration inputs (red-meat RR, TMREL, age attenuation)
 tests/                  # pytest suite
-docs/                   # Sphinx site: conf.py + Markdown pages (MyST), built with furo
+docs/                   # Sphinx site (MyST Markdown, furo), organised as:
+  guide/                #   using the package
+  examples/             #   executed notebook gallery
+  model/                #   methodology, data sources, limitations, licensing
+  reference/            #   API reference and glossary
+  development/          #   dev workflow and data build
 ```
 
 ## Key design decisions
@@ -50,7 +56,7 @@ docs/                   # Sphinx site: conf.py + Markdown pages (MyST), built wi
 * **Processed meat is separate** from red meat (its own GBD 2023 curve; the
   baseline split comes from the GDD-IA processed fraction).
 * **Mass basis** reconciles GBD's native exposure bases with measured intakes;
-  the meal input basis is documented per group in `docs/food_groups.md`.
+  the meal input basis is documented per group in `docs/guide/food_groups.md`.
 * **Optional nutrient factors are separate from food groups.** They use explicit
   API keywords in mg, convert to the engine's g/day axis, and are excluded when
   omitted (`None`) but included when explicitly supplied as `0.0`.
@@ -75,15 +81,24 @@ tools, and the suite needs only bundled processed data and synthetic fixtures â€
 not the git-ignored `data/raw/` inputs.
 
 Dev and docs tooling live in PEP 735 `[dependency-groups]`, not in published
-extras. The docs site (Sphinx + MyST + furo) is deployed to GitHub Pages by
+extras. The docs site (Sphinx + MyST-NB + furo) is deployed to GitHub Pages by
 `.github/workflows/docs.yml` on pushes to `master`, once Pages is enabled for
 the repo.
 
+The docs build is a second test suite. It runs with `-W` in CI, so any Sphinx
+warning fails the build, and the `docs/examples/*.md` notebooks execute on
+every build â€” a break in the public API or in a figure's code fails the docs
+job. A cold build takes about 35 seconds; `docs/.jupyter_cache/` makes
+subsequent builds fast. Shared plot styling is in `docs/examples/mhstyle.py`.
+
 ## Regenerating bundled data
 
-Regenerate bundled data with the command below. See `docs/data_sources.md` for
-what to download into `data/raw/`; the UN WPP files, WHO mortality, location
-hierarchy, and public GBD Burden-of-Proof curves download automatically:
+Regenerate bundled data with the command below. See
+`docs/development/data_build.md` for what to download into `data/raw/`; the UN
+WPP files, WHO mortality, location hierarchy, public GBD Burden-of-Proof
+curves, and the GDD-IA calorie table download automatically. Only the three
+authenticated IHME archives are staged by hand, and
+`python -m tools.build_data --list-inputs` reports which of them are missing:
 
 ```bash
 uv run python -m tools.build_data

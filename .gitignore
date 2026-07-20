@@ -14,12 +14,10 @@ dist/
 .coverage
 htmlcov/
 
-# Built documentation site.
+# Built documentation site, and the myst-nb execution cache.
 docs/_build/
+docs/.jupyter_cache/
 
 # Raw source datasets for data prep (developer-downloaded; not redistributable).
-# See docs/data_sources.md for how to obtain them.
+# See docs/development/data_build.md for how to obtain them.
 data/raw/
-
-# Project spec — kept locally, not tracked
-spec.org

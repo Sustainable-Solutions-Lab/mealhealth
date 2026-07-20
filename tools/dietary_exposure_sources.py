@@ -270,7 +270,7 @@ def read_exposure(
     if not path.exists():
         raise FileNotFoundError(
             f"Missing GBD {source.name} exposure input:\n  {path}\n"
-            "See docs/data_sources.md for authenticated download instructions."
+            "See docs/development/data_build.md for authenticated download instructions."
         )
     if verify_checksum:
         actual = sha256(path)

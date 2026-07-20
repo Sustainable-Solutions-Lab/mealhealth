@@ -237,7 +237,7 @@ def main() -> None:
     if not GBD2019_RR_XLSX.exists():
         raise FileNotFoundError(
             f"Missing {GBD2019_RR_XLSX} (the GBD 2019 RR workbook is the donor for "
-            "the age structure; see docs/data_sources.md for how to obtain it)."
+            "the age structure; see docs/development/data_build.md for how to obtain it)."
         )
     rr19 = parse_gbd2019_rr(GBD2019_RR_XLSX)
     shape = _extract_shape(rr19)

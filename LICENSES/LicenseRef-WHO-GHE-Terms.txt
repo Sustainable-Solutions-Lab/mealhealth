@@ -26,5 +26,5 @@ Organization; 2024. Accessed 15 July 2026. The WHO source country represented
 by each record is retained in ``mortality.csv`` as ``source_country``.
 
 The data were extracted and processed by mealhealth. Processing is documented
-in ``docs/data_sources.md`` and does not imply endorsement by WHO or by the
+in ``docs/model/data_sources.md`` and does not imply endorsement by WHO or by the
 countries represented in the source data.

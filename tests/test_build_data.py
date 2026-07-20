@@ -72,6 +72,11 @@ def test_main_downloads_checks_and_runs_stages_in_order(monkeypatch):
         lambda: events.append("downloads"),
     )
     monkeypatch.setattr(
+        build_data.build_baseline_calories,
+        "ensure_source",
+        lambda: events.append("calorie source"),
+    )
+    monkeypatch.setattr(
         build_data,
         "check_manual_inputs",
         lambda: events.append("check"),
@@ -87,11 +92,12 @@ def test_main_downloads_checks_and_runs_stages_in_order(monkeypatch):
         lambda stages, staging_dir: events.append("publish"),
     )
 
-    build_data.main()
+    build_data.main([])
 
     assert events == [
         "check",
         "downloads",
+        "calorie source",
         *(stage.name for stage in build_data.STAGES),
         "publish",
     ]
@@ -111,8 +117,11 @@ def test_main_publishes_outputs_only_after_all_stages_succeed(monkeypatch, tmp_p
     )
     monkeypatch.setattr(build_data, "check_manual_inputs", lambda: None)
     monkeypatch.setattr(build_data.prepare_data, "ensure_raw_downloads", lambda: None)
+    monkeypatch.setattr(
+        build_data.build_baseline_calories, "ensure_source", lambda: None
+    )
 
-    build_data.main()
+    build_data.main([])
 
     assert (packaged_data / "result.csv").read_text() == "new\n"
 
@@ -160,8 +169,27 @@ def test_main_keeps_packaged_outputs_when_a_later_stage_fails(monkeypatch, tmp_p
     )
     monkeypatch.setattr(build_data, "check_manual_inputs", lambda: None)
     monkeypatch.setattr(build_data.prepare_data, "ensure_raw_downloads", lambda: None)
+    monkeypatch.setattr(
+        build_data.build_baseline_calories, "ensure_source", lambda: None
+    )
 
     with pytest.raises(RuntimeError, match="stage failed"):
-        build_data.main()
+        build_data.main([])
 
     assert existing.read_text() == "old\n"
+
+
+def test_list_inputs_reports_every_manual_file(monkeypatch, capsys):
+    monkeypatch.setattr(
+        build_data,
+        "check_manual_inputs",
+        lambda: pytest.fail("--list-inputs must not run the build"),
+    )
+
+    build_data.main(["--list-inputs"])
+
+    out = capsys.readouterr().out
+    for path in build_data.manual_inputs():
+        assert str(path.relative_to(build_data.ROOT)) in out
+    for digest in build_data.pinned_digests().values():
+        assert digest in out

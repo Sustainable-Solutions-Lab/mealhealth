@@ -115,7 +115,9 @@ def build_age_attenuation(xlsx: Path = GBD2019_RR_XLSX) -> pd.DataFrame:
 
 def main() -> None:
     if not GBD2019_RR_XLSX.exists():
-        raise FileNotFoundError(f"Missing {GBD2019_RR_XLSX}; see docs/data_sources.md.")
+        raise FileNotFoundError(
+            f"Missing {GBD2019_RR_XLSX}; see docs/development/data_build.md."
+        )
     result = build_age_attenuation()
     for output in (OUTPUT, BUNDLED_OUTPUT):
         output.parent.mkdir(parents=True, exist_ok=True)

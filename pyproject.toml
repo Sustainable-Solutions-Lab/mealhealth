@@ -47,9 +47,12 @@ dev = [
 ]
 docs = [
     "sphinx>=8",
-    "myst-parser>=4",
+    "myst-nb>=1.2",             # MyST Markdown + executed notebooks
     "furo>=2024.8",
     "sphinx-copybutton>=0.5",
+    "matplotlib>=3.8",          # figures in the example notebooks
+    "jupytext>=1.16",           # MyST Markdown notebooks (no .ipynb in git)
+    "ipykernel>=6",             # kernel the notebooks execute in
 ]
 
 [tool.setuptools.packages.find]

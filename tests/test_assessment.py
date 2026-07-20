@@ -225,12 +225,16 @@ def test_relative_only_matches_full_paf():
 
 
 def test_processed_meat_toggle():
-    meal = {"processed_meat": 80}
-    with_pm = mh.assess_meal(meal, 400, "USA")
-    without_pm = mh.assess_meal(meal, 400, "USA", include_processed_meat=False)
+    with_pm = mh.assess_meal({"processed_meat": 80}, 400, "USA")
+    without_pm = mh.assess_meal({}, 400, "USA", include_processed_meat=False)
     # excluding processed meat removes its (harmful) contribution
     assert with_pm.delta_yll_local_total < without_pm.delta_yll_local_total
     assert "processed_meat" not in without_pm.exposure
+
+
+def test_processed_meat_in_meal_rejected_when_group_excluded():
+    with pytest.raises(ValueError, match="processed_meat"):
+        mh.assess_meal({"processed_meat": 80}, 400, "USA", include_processed_meat=False)
 
 
 def test_unknown_food_group_raises():

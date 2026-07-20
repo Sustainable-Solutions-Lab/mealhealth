@@ -5,7 +5,7 @@
 """Loaders for the bundled, processed data.
 
 The package ships small processed CSVs derived from GBD, GDD-IA and UN WPP
-(see ``docs/data_sources.md`` for provenance and licensing). All loaders are
+(see ``docs/model/data_sources.md`` for provenance and licensing). All loaders are
 cached so the files are read once per process.
 """
 

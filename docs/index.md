@@ -51,37 +51,81 @@ print("By cause:", result.delta_paf_total)      # per-cause % risk change
 
 ## Where to go next
 
-* **[Installation](installation.md)** — add `mealhealth` to a project (uv, pixi,
-  `pyproject.toml`, pip) or set up a local development checkout.
-* **[Usage](usage.md)** — the one function you need, worked examples, and the
-  result object.
-* **[Food groups](food_groups.md)** — group definitions and the **mass basis**
-  you must supply each group in (this matters for correctness).
-* **[Methodology](methodology.md)** — the substitution model, relative risk,
-  PAF, the YLL anchor, and the age modes.
-* **[Data sources](data_sources.md)** — provenance and **licensing** (read this
-  before any redistribution or commercial use).
-* **[API reference](api.md)** — the public functions and objects.
+If you are here to use the package, read [Installation](guide/installation.md)
+and [Quickstart](guide/quickstart.md), then
+[Food groups](guide/food_groups.md) — the mass basis each group must be supplied
+in is the one thing that will silently corrupt your numbers if you get it wrong.
+[Interpreting results](guide/interpreting.md) explains what the figures mean and
+which comparisons between them hold up, and the
+[examples](examples/index.md) work through real meals with plots.
+
+If you want to know what the model actually does, or whether you can trust a
+number for your purpose, start with [Methodology](model/methodology.md) and read
+[Limitations](model/limitations.md) before you publish anything. Provenance is
+in [Data sources](model/data_sources.md), and terms of use in
+[Licensing and citation](model/licensing.md).
+
+If you are working *on* mealhealth, see the
+[development workflow](development/index.md), and
+[Rebuilding the bundled data](development/data_build.md) for regenerating the
+bundled CSVs from the upstream releases.
 
 ## Licensing at a glance
 
 The **source code** is GPL-3.0-or-later, but the **bundled data** carries a
 **non-commercial** restriction — it comes from IHME GBD. The other sources (UN
-World Population Prospects, the GDD-IA dietary data (CC BY 4.0), NHANES) are
+World Population Prospects, and the GDD-IA dietary data under CC BY 4.0) are
 more permissive. WHO mortality is governed separately by custom WHO dataset
 terms permitting redistribution for public-health purposes with attribution.
 The distributed package *as a whole* is therefore for **non-commercial research,
 teaching and private study, with attribution**. See
-[Data sources](data_sources.md#licensing) for the details.
+[Licensing and citation](model/licensing.md) for the details.
 
 ```{toctree}
 :hidden:
+:caption: Using mealhealth
 :maxdepth: 2
 
-installation
-usage
-food_groups
-methodology
-data_sources
-api
+guide/installation
+guide/quickstart
+guide/food_groups
+guide/interpreting
+guide/troubleshooting
+```
+
+```{toctree}
+:hidden:
+:caption: Examples
+:maxdepth: 2
+
+examples/index
+```
+
+```{toctree}
+:hidden:
+:caption: Understanding the model
+:maxdepth: 2
+
+model/methodology
+model/data_sources
+model/limitations
+model/licensing
+```
+
+```{toctree}
+:hidden:
+:caption: Reference
+:maxdepth: 2
+
+reference/api
+reference/glossary
+```
+
+```{toctree}
+:hidden:
+:caption: Development
+:maxdepth: 2
+
+development/index
+development/data_build
 ```

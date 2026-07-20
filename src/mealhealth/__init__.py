@@ -23,7 +23,7 @@ Quick start
 NOTE ON LICENSING: the source code is GPL-3.0-or-later, but the bundled data is
 derived from GBD, GDD-IA and WPP datasets; its non-commercial restriction comes
 from IHME GBD, so the distributed package as a whole is for **non-commercial
-use**. See ``docs/data_sources.md``.
+use**. See ``docs/model/licensing.md``.
 """
 
 from .api import (

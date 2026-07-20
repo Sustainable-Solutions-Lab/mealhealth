@@ -22,7 +22,7 @@ version = release
 # -- General configuration ---------------------------------------------------
 
 extensions = [
-    "myst_parser",  # Markdown source (the docs are all .md)
+    "myst_nb",  # Markdown source (the docs are all .md) + executed notebooks
     "sphinx.ext.autodoc",  # pull the API reference from docstrings
     "sphinx.ext.napoleon",  # understand the NumPy-style docstrings
     "sphinx.ext.autosummary",
@@ -57,7 +57,19 @@ myst_enable_extensions = [
 ]
 myst_heading_anchors = 3  # auto-anchor headings so cross-page links resolve
 
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+# -- MyST-NB (executed example notebooks) ------------------------------------
+
+# The notebooks in examples/ are MyST Markdown with no stored outputs, so they
+# execute on every build. That keeps the figures honest — they are produced by
+# the code shown, against the bundled data — and makes the docs build double as
+# an integration test of the public API.
+nb_execution_mode = "cache"
+nb_execution_timeout = 300
+nb_execution_raise_on_error = True  # a failing example must fail the build
+nb_execution_working_dir = "examples"  # so the notebooks can import mhstyle
+nb_merge_streams = True
+
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "examples/mhstyle.py"]
 
 # -- HTML output -------------------------------------------------------------
 
