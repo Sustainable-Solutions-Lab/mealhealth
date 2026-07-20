@@ -55,6 +55,8 @@ If you are here to use the package, read [Installation](guide/installation.md)
 and [Quickstart](guide/quickstart.md), then
 [Food groups](guide/food_groups.md) — the mass basis each group must be supplied
 in is the one thing that will silently corrupt your numbers if you get it wrong.
+[Interpreting results](guide/interpreting.md) explains what the figures mean and
+which comparisons between them hold up.
 
 If you want to know what the model actually does, or whether you can trust a
 number for your purpose, start with [Methodology](model/methodology.md) and read
@@ -85,6 +87,8 @@ teaching and private study, with attribution**. See
 guide/installation
 guide/quickstart
 guide/food_groups
+guide/interpreting
+guide/troubleshooting
 ```
 
 ```{toctree}
@@ -104,6 +108,7 @@ model/licensing
 :maxdepth: 2
 
 reference/api
+reference/glossary
 ```
 
 ```{toctree}

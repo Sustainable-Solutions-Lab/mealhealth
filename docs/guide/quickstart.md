@@ -6,8 +6,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Quickstart
 
-See [Installation](installation.md) for how to add `mealhealth` to a project,
-and [Methodology](../model/methodology.md) for what the numbers mean.
+See [Installation](installation.md) for how to add `mealhealth` to a project.
+Once a meal is assessed, [Interpreting results](interpreting.md) explains what
+the numbers mean.
 
 ## The one function you need
 
@@ -132,5 +133,7 @@ mh.nutrient_factors()["sodium"].api_unit       # 'mg'
 
 ## Next
 
-[Methodology](../model/methodology.md) derives the numbers above, and
-[Limitations](../model/limitations.md) says how far to trust them.
+[Interpreting results](interpreting.md) covers what these numbers mean and how
+far to trust them, and [Troubleshooting](troubleshooting.md) covers the errors
+and warnings you are most likely to hit. [Methodology](../model/methodology.md)
+derives the formulas behind them.

@@ -57,7 +57,7 @@ The model converts dietary sodium to the GBD 24-hour urinary-sodium basis and
 evaluates a country × age × sex mean SBP shift. It does not use personal blood
 pressure, hypertension treatment, kidney function, or salt sensitivity.
 
-## Mass basis — read this for correct numbers
+## Mass basis, and why it matters
 
 The relative-risk curves and the bundled baseline diet are all expressed in a
 consistent per-group **basis** (GBD's native exposure bases reconciled with
