@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 Koen van Greevenbroek
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Development
+# Development workflow
 
 This page covers working *on* mealhealth. To use it as a dependency, see
 [Installation](../guide/installation.md) instead.
@@ -109,10 +109,3 @@ lifetime formula, change it there first and make the engine follow.
 
 US-focused sanity checks live in `tests/test_assessment.py` — sign, direction
 and magnitude for meals whose effect is not in doubt.
-
-```{toctree}
-:hidden:
-
-data_build
-design/index
-```

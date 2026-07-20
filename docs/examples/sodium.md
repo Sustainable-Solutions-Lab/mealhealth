@@ -149,9 +149,7 @@ uniformly between 1 and 5 g/day, and the model integrates the risk ratio over
 that interval rather than collapsing it to the 3 g/day midpoint.
 
 [Limitations](../model/limitations.md#sodium-is-a-mean-shift-approximation)
-states the same caveats for citation, and the
-[sodium design note](../development/design/sodium.md) describes the
-distributional model this one deliberately falls short of.
+states the same caveats in a form you can cite.
 
 ## Next
 

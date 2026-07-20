@@ -91,4 +91,5 @@ Under uv, prefix it with `uv run`.
 ## Next
 
 [Quickstart](quickstart.md) covers the one function you need. To work *on*
-mealhealth rather than with it, see [Development](../development/index.md).
+mealhealth rather than with it, see the
+[development workflow](../development/index.md).

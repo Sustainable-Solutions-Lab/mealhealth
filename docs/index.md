@@ -65,9 +65,10 @@ number for your purpose, start with [Methodology](model/methodology.md) and read
 in [Data sources](model/data_sources.md), and terms of use in
 [Licensing and citation](model/licensing.md).
 
-If you are working *on* mealhealth, see
-[Development](development/index.md) and, for regenerating the bundled CSVs,
-[Rebuilding the bundled data](development/data_build.md).
+If you are working *on* mealhealth, see the
+[development workflow](development/index.md), and
+[Rebuilding the bundled data](development/data_build.md) for regenerating the
+bundled CSVs from the upstream releases.
 
 ## Licensing at a glance
 
@@ -126,4 +127,5 @@ reference/glossary
 :maxdepth: 2
 
 development/index
+development/data_build
 ```

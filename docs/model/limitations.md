@@ -61,8 +61,8 @@ prediction for an individual. They take no account of personal blood pressure,
 antihypertensive treatment, kidney function, or salt sensitivity. Because the
 SBP curves are nonlinear, evaluating them at a stratum mean is expected to
 misstate the stratum's true mean risk; the direction depends on curvature over
-the relevant range. A distributional treatment is designed but not implemented
-— see the [sodium design note](../development/design/sodium.md).
+the relevant range. Replacing this with a distributional treatment would need
+within-stratum exposure data that the bundled sources do not provide.
 
 ## Coverage gaps
 

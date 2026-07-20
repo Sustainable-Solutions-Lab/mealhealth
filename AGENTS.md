@@ -37,7 +37,7 @@ docs/                   # Sphinx site (MyST Markdown, furo), organised as:
   examples/             #   executed notebook gallery
   model/                #   methodology, data sources, limitations, licensing
   reference/            #   API reference and glossary
-  development/          #   dev workflow, data build, design notes
+  development/          #   dev workflow and data build
 ```
 
 ## Key design decisions
