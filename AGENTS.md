@@ -21,9 +21,10 @@ src/mealhealth/
   model.py        # calculation engine (curves, burden, substitution, modes)
   api.py          # public assess_meal() and helpers
   data/*.csv      # bundled processed data (+ DATA_PROVENANCE.md)
-tools/prepare_data.py              # regenerate health/demographic data from raw (dev only)
-tools/build_baseline_exposure.py        # build GBD/WPP direct baselines
-tools/build_baseline_calories.py        # build GDD-IA/WPP calorie baselines
+tools/build_data.py                # bundled-data regeneration workflow
+tools/prepare_data.py              # internal health/demographic build stage
+tools/build_baseline_exposure.py  # internal GBD/WPP direct-baseline stage
+tools/build_baseline_calories.py  # internal GDD-IA/WPP calorie-baseline stage
 tools/generate_rr_age_attenuation.py # one-off: curated RR age-attenuation table from GBD 2019
 tools/reference/*.csv              # curated regeneration inputs (red-meat RR, TMREL, age attenuation)
 tests/                  # pytest suite
@@ -71,18 +72,19 @@ the repo.
 
 ## Regenerating bundled data
 
-Health/demographic data regenerates from public raw datasets (see
-`docs/data_sources.md` for what to download into `data/raw/`; the UN WPP files
-and the GBD 2023 Burden-of-Proof RR curves download automatically):
+Regenerate bundled data with the command below. See `docs/data_sources.md` for
+what to download into `data/raw/`; the UN WPP files, WHO mortality, location
+hierarchy, and public GBD Burden-of-Proof curves download automatically:
 
 ```bash
-uv run python tools/prepare_data.py
+uv run python tools/build_data.py
 ```
 
-The RR age structure and TMRELs are read from curated tables under
-`tools/reference/`; `tools/generate_rr_age_attenuation.py` is a one-off that
-rebuilds `rr_age_attenuation.csv` from the GBD 2019 RR workbook (the only
-remaining use of GBD 2019, as the donor for the age shape).
+The command runs the direct exposure baseline, calorie baseline, health and
+demographic data, sodium mediator baseline, and sodium/SBP curve stages in the
+required order. The RR age structure and TMRELs are read from curated tables
+under `tools/reference/`. The two `generate_*_age_attenuation.py` tools update
+curated reference tables when their source workbook is deliberately refreshed.
 
 The direct baseline (`baseline_exposure.csv`) is built from the seven dietary
 food-group files plus seafood EPA+DHA in the official GBD 2023 Risk Exposure

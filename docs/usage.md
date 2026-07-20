@@ -137,19 +137,16 @@ The bundled **health and demographic** CSVs (`relative_risks.csv`,
 `standard_life_table.csv`) are regenerated from public source datasets.
 Download the authenticated exposure and reference-life-table files into
 `data/raw/`; WHO mortality, UN WPP, the national location hierarchy, and public
-BoP curves download automatically. Then run the relevant builders:
+BoP curves download automatically. Then run:
 
 ```bash
-uv run python tools/prepare_data.py
-uv run python tools/build_baseline_exposure.py
-uv run python tools/build_baseline_calories.py
-uv run python tools/build_baseline_mediators_from_gbd.py
-uv run python tools/build_sodium_relative_risks.py
+uv run python tools/build_data.py
 ```
 
-`tools/generate_sbp_age_attenuation.py` is a one-off builder for the curated
-GBD 2019 age-shape donor table, analogous to the dietary age attenuation.
+The command checks the manually staged files and runs the data-build stages in
+dependency order. The `tools/generate_*_age_attenuation.py` files update
+curated GBD 2019 age-shape donor tables when their source workbook is
+deliberately refreshed.
 
 See [`data_sources.md`](data_sources.md) for exactly which files to download and
-where to place them. The direct exposure and calorie baselines are independent
-builders; sodium/SBP remains a separate mediator build.
+where to place them.

@@ -7,11 +7,8 @@
 
 The Burden-of-Proof API is public and requires no authenticated GBD download.
 This builder validates the expected unit and evidence rating for every selected
-curve before writing the compact all-age curve table used by the runtime.
-
-Run from the repository root::
-
-    python tools/build_sodium_relative_risks.py
+curve before writing the compact all-age curve table used by the runtime. It is
+an internal stage invoked by ``tools/build_data.py``.
 """
 
 from __future__ import annotations
@@ -103,11 +100,18 @@ def build_relative_risks() -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values(["path", "curve_cause", "exposure"])
 
 
-def main() -> None:
+def build_and_write_relative_risks(output: Path = OUTPUT) -> pd.DataFrame:
+    """Fetch, validate, and write the sodium/SBP relative-risk curves."""
+
     result = build_relative_risks()
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    result.to_csv(OUTPUT, index=False)
-    print(f"Wrote {len(result)} rows to {OUTPUT}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    result.to_csv(output, index=False)
+    print(f"Wrote {len(result)} rows to {output}")
+    return result
+
+
+def main() -> None:
+    build_and_write_relative_risks()
 
 
 if __name__ == "__main__":

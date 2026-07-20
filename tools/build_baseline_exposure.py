@@ -134,17 +134,33 @@ def write_baseline_exposure(frame: pd.DataFrame, output: Path = OUT_PATH) -> Non
     frame.to_csv(output, index=False, float_format="%.10g", lineterminator="\n")
 
 
+def build_and_write_baseline_exposure(
+    *,
+    manifest_path: Path = MANIFEST_PATH,
+    output: Path = OUT_PATH,
+    verify_checksum: bool = True,
+) -> pd.DataFrame:
+    """Build and write the direct exposure baseline."""
+
+    frame = build_baseline_exposure(
+        manifest_path=manifest_path, verify_checksum=verify_checksum
+    )
+    write_baseline_exposure(frame, output)
+    print(f"Wrote {len(frame)} rows to {output}")
+    return frame
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH)
     parser.add_argument("--output", type=Path, default=OUT_PATH)
     parser.add_argument("--no-checksum", action="store_true")
     args = parser.parse_args()
-    frame = build_baseline_exposure(
-        manifest_path=args.manifest, verify_checksum=not args.no_checksum
+    build_and_write_baseline_exposure(
+        manifest_path=args.manifest,
+        output=args.output,
+        verify_checksum=not args.no_checksum,
     )
-    write_baseline_exposure(frame, args.output)
-    print(f"Wrote {len(frame)} rows to {args.output}")
 
 
 if __name__ == "__main__":
